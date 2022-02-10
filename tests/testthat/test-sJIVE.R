@@ -1,3 +1,5 @@
-test_that("multiplication works", {
-  expect_equal(2 * 2, 4)
+test_that("sJIVE function works", {
+  X <- 5
+  Y <- 3
+  expect_equal(sJIVE.converge(X,Y), 8)
 })

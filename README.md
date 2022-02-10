@@ -1,0 +1,31 @@
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+# sup.r.jive
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+The goal of sup.r.jive is to perform supervised extensions to Joint and
+Individual Variation Explained (JIVE) including JIVE predict, supervised
+JIVE (sJIVE), and sparse exponential family sJIVE (sesJIVE). Example
+data files and visualization functions are also included.
+
+## Installation
+
+You can install the development version of sup.r.jive from
+[GitHub](https://github.com/) with:
+
+``` r
+# install.packages("devtools")
+devtools::install_github("enorthrop/sup.r.jive")
+```
+
+## Example
+
+This is a basic example which shows you how to use `sup.r.jive`.
+
+``` r
+library(sup.r.jive)
+## basic example code to be inserted later
+```

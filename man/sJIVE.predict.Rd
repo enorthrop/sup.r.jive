@@ -2,7 +2,7 @@
 % Please edit documentation in R/sJIVE.R
 \name{sJIVE.predict}
 \alias{sJIVE.predict}
-\title{sJIVE.predict}
+\title{Prediction for sJIVE}
 \usage{
 sJIVE.predict(sJIVE.fit, newdata, threshold = 0.001, max.iter = 2000)
 }
@@ -19,7 +19,7 @@ sJIVE.predict(sJIVE.fit, newdata, threshold = 0.001, max.iter = 2000)
 A list of stuff
 }
 \description{
-sJIVE.predict
+Prediction for sJIVE
 }
 \examples{
 train.x <- list(matrix(rnorm(300), ncol=20),matrix(rnorm(200), ncol=20))

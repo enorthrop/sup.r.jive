@@ -9,7 +9,7 @@ sJIVE(
   Y,
   rankJ = NULL,
   rankA = NULL,
-  eta = NULL,
+  eta = c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99),
   max.iter = 1000,
   threshold = 0.001,
   method = "permute",
@@ -18,31 +18,34 @@ sJIVE(
 )
 }
 \arguments{
-\item{X}{A list of p_i by n matrices containing centered and scaled data}
+\item{X}{A list of two or more linked data matrices. Each matrix must have the same number of columns which is assumed to be common.}
 
-\item{Y}{A length n vector of a centered and scaled outcome}
+\item{Y}{A numeric outcome expressed as a vector with length equal to the number of columns in each view of \code{X}.}
 
-\item{rankJ}{Joint rank}
+\item{rankJ}{An integer specifying the joint rank of the data. If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.}
 
-\item{rankA}{Vector or indivudual ranks}
+\item{rankA}{A vector specifying the individual ranks of the data. If \code{rankA=NULL}, ranks will be determined by the \code{method} option.}
 
-\item{eta}{Weight}
+\item{eta}{A value or vector of values between 0 and 1. If \code{eta} is a single value, \code{X} will be weighted by \code{eta} and \code{Y} will be weighted by \code{1-eta}. if \code{eta} is a vector, 5-fold CV will pick the \code{eta} that minimizes the test MSE.}
 
-\item{max.iter}{Max iterations}
+\item{max.iter}{The maximum number of iterations for each instance of the sJIVE algorithm.}
 
-\item{threshold}{Threshold}
+\item{threshold}{The threshold used to determine convergence of the algorithm.}
 
-\item{method}{Way to determine ranks}
+\item{method}{A string with which rank selection method to use. Possible options are "permute" which uses JIVE's permutation method, or "CV" which uses 5-fold forward CV to determine ranks.}
 
-\item{center.scale}{Center and scaling dataset}
+\item{center.scale}{A boolean indicating whether or not the data should be centered and scaled.}
 
-\item{reduce.dim}{Reduce dimension for computation efficiency}
+\item{reduce.dim}{A boolean indicating whether or not dimension reduction should be used to increase computation efficiency}
 }
 \value{
-A fitted JIVE model
+Returns an object of class \code{sjive} that contains the following components:
 }
 \description{
-Supervised JIVE (sJIVE)
+Given multi-source data and a continuous outcome, sJIVE can simultaneously identify shared (joint) and source-specific (individual) underlying structure while building a linear prediction model for an outcome using these structures. These two components are weighted to compromise between explaining variation in the multi-source data and in the outcome.
+}
+\details{
+The rank of the joint and individual components as well as the weight between the data and the outcome can be pre-specified or adaptively selected within the function.
 }
 \examples{
 train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))

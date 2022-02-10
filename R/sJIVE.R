@@ -273,8 +273,134 @@ sJIVE.converge <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.001,
               iterations = iter, rankJ=rankJ, rankA=rankA, eta=eta))
 }
 
+#' Supervised JIVE (sJIVE)
+#'
+#' Given multi-source data and a continuous outcome, sJIVE can simultaneously identify shared (joint) and source-specific (individual) underlying structure while building a linear prediction model for an outcome using these structures. These two components are weighted to compromise between explaining variation in the multi-source data and in the outcome.
+#'
+#' @param X A list of two or more linked data matrices. Each matrix must have the same number of columns which is assumed to be common.
+#' @param Y A numeric outcome expressed as a vector with length equal to the number of columns in each view of \code{X}.
+#' @param rankJ An integer specifying the joint rank of the data. If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.
+#' @param rankA A vector specifying the individual ranks of the data. If \code{rankA=NULL}, ranks will be determined by the \code{method} option.
+#' @param eta A value or vector of values between 0 and 1. If \code{eta} is a single value, \code{X} will be weighted by \code{eta} and \code{Y} will be weighted by \code{1-eta}. if \code{eta} is a vector, 5-fold CV will pick the \code{eta} that minimizes the test MSE.
+#' @param max.iter The maximum number of iterations for each instance of the sJIVE algorithm.
+#' @param threshold The threshold used to determine convergence of the algorithm.
+#' @param method A string with which rank selection method to use. Possible options are "permute" which uses JIVE's permutation method, or "CV" which uses 5-fold forward CV to determine ranks.
+#' @param center.scale A boolean indicating whether or not the data should be centered and scaled.
+#' @param reduce.dim A boolean indicating whether or not dimension reduction should be used to increase computation efficiency
+#'
+#' @details The rank of the joint and individual components as well as the weight between the data and the outcome can be pre-specified or adaptively selected within the function.
+#'
+#' @return Returns an object of class \code{sjive} that contains the following components:
+#' @export
+#'
+#' @examples
+#' train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
+#' train.y <- rnorm(20)
+#' train.fit <- sJIVE(X=train.x,Y=train.y,rankJ=1,rankA=c(1,1),eta=0.5)
+sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99), max.iter=1000,
+                  threshold = 0.001,  method="permute",
+                  center.scale=TRUE, reduce.dim = TRUE){
 
-#' sJIVE.predict
+  k <- length(X)
+  n <- ncol(X[[1]])
+  if(length(Y) != n){stop("Number of columns differ between datasets")}
+
+  if(center.scale){
+    Y <- as.numeric(scale(as.numeric(Y)))
+    for(i in 1:k){
+      for(j in 1:nrow(X[[i]])){
+        X[[i]][j,] <- as.numeric(scale(as.numeric(X[[i]][j,])))
+      }
+    }
+  }
+  e.vec=eta
+
+  if(is.null(rankJ) | is.null(rankA)){
+    if(method=="permute"){
+      temp <- r.jive::jive(X, Y, center=F, scale=F,orthIndiv = F)
+      rankJ <- temp$rankJ
+      rankA <- temp$rankA
+    }else if(method=="CV"){
+      temp <- sJIVE.ranks(X,Y, eta=eta, max.iter = max.iter, center.scale=center.scale,
+                          reduce.dim=reduce.dim)
+      rankJ <- temp$rankJ
+      rankA <- temp$rankA
+    }else{
+      errorCondition("Invalid method chosen")
+    }
+    cat(paste0("Using rankJ= ", rankJ, " and rankA= ", paste(rankA, collapse = " "), "\n"))
+  }
+
+  if(length(e.vec)>1){
+    #get cv folds
+    n <- length(Y)
+    fold <- list()
+    cutoff <- round(stats::quantile(1:n, c(.2,.4,.6,.8)))
+    fold[[1]] <- 1:cutoff[1]
+    fold[[2]] <- (cutoff[1]+1):cutoff[2]
+    fold[[3]] <- (cutoff[2]+1):cutoff[3]
+    fold[[4]] <- (cutoff[3]+1):cutoff[4]
+    fold[[5]] <- (cutoff[4]+1):n
+
+    cat("Choosing Tuning Parameter: eta \n")
+    err.test <- NA
+    for(e in e.vec){
+      err.fold <- NA
+      for(i in 1:5){
+        #Get train/test sets
+        sub.train.x <- sub.test.x <- list()
+        sub.train.y <- Y[-fold[[i]]]
+        sub.test.y <- Y[fold[[i]]]
+        for(j in 1:length(X)){
+          sub.train.x[[j]] <- X[[j]][,-fold[[i]]]
+          sub.test.x[[j]] <- X[[j]][,fold[[i]]]
+        }
+        temp.mat <- rbind(e * sub.train.x[[1]],
+                          e * sub.train.x[[2]],
+                          (1-e) * sub.train.y)
+        temp.norm <- norm(temp.mat, type="F")
+        fit1 <- sJIVE.converge(sub.train.x, sub.train.y, max.iter = max.iter,
+                               rankJ = rankJ, rankA = rankA, eta = e,
+                               show.message=F, center.scale=center.scale,
+                               reduce.dim=reduce.dim, threshold = temp.norm/50000)
+        #Record Error for fold
+        fit_test1 <- sJIVE.predict(fit1, sub.test.x)
+        if(sum(is.na(fit_test1$Ypred))==0){
+          fit.mse <- sum((fit_test1$Ypred - sub.test.y)^2)/length(sub.test.y)
+          err.fold <- c(err.fold, fit.mse)
+        }else{
+          err.fold <- c(err.fold, NA)
+        }
+      }
+
+      #Record Test Error (using validation set)
+      fit.mse <- mean(err.fold, na.rm = T)
+      err.test <- c(err.test, fit.mse)
+      if(min(err.test, na.rm = T) == fit.mse){
+        best.eta <- e
+      }
+    }
+    cat(paste0("Using eta= ", best.eta, "\n"))
+    test.best <- sJIVE.converge(X, Y, max.iter = max.iter,
+                                rankJ = rankJ, rankA = rankA, eta = best.eta,
+                                threshold = threshold, center.scale=center.scale,
+                                reduce.dim=reduce.dim)
+  }else{
+    test.best <- sJIVE.converge(X, Y, max.iter = max.iter,
+                                rankJ = rankJ, rankA = rankA, eta = e.vec,
+                                threshold = threshold, center.scale=center.scale,
+                                reduce.dim=reduce.dim)
+  }
+
+
+  return(test.best)
+
+}
+
+
+
+
+#' Prediction for sJIVE
 #'
 #' @param sJIVE.fit A fitted sJIVE model
 #' @param newdata A list of matrices representing the new X dataset
@@ -378,151 +504,4 @@ sJIVE.predict <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
               iteration = iter,
               error = error.new))
 }
-
-
-#' Supervised JIVE (sJIVE)
-#'
-#' @param X A list of p_i by n matrices containing centered and scaled data
-#' @param Y A length n vector of a centered and scaled outcome
-#' @param rankJ Joint rank
-#' @param rankA Vector or indivudual ranks
-#' @param eta Weight
-#' @param max.iter Max iterations
-#' @param threshold Threshold
-#' @param method Way to determine ranks
-#' @param center.scale Center and scaling dataset
-#' @param reduce.dim Reduce dimension for computation efficiency
-#'
-#' @return A fitted JIVE model
-#' @export
-#'
-#' @examples
-#' train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
-#' train.y <- rnorm(20)
-#' train.fit <- sJIVE(X=train.x,Y=train.y,rankJ=1,rankA=c(1,1),eta=0.5)
-sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=NULL, max.iter=1000,
-                  threshold = 0.001,  method="permute",
-                  center.scale=TRUE, reduce.dim = TRUE){
-  ############################################################################
-  #X is a list of 2 or more datasets, each with dimensions p_i by n
-  #Y is continuous vector length n
-  #eta is a tuning parameter between 0 and 1. When eta=NULL, a gridsearch
-  #   is conducted to tune eta. You can specify a value of eta to use,
-  #   or supply a vector of eta values for sJIVE to consider.
-  #rankJ is a value for the low-rank of the joint component
-  #rankA is a vector of the ranks for each X dataset. When rankJ or rankA
-  #   are NULL, a rank selection method (see method) will choose ranks
-  #max.iter specifies the maximum number of iterations that will run
-  #threshold specifies the criteria to determine when algorithm has
-  #   converged
-  #Method = c("permute", "CV"). When ranks are not specified, ranks will
-  #   be determined by JIVE's permutation method, or sJIVE's
-  #   cross-validation method
-  #Center.scale is a true/false indicator for whether or not to center and
-  #   scale the data prior to fitting.
-  ############################################################################
-
-  k <- length(X)
-  n <- ncol(X[[1]])
-  if(length(Y) != n){stop("Number of columns differ between datasets")}
-
-  if(center.scale){
-    Y <- as.numeric(scale(as.numeric(Y)))
-    for(i in 1:k){
-      for(j in 1:nrow(X[[i]])){
-        X[[i]][j,] <- as.numeric(scale(as.numeric(X[[i]][j,])))
-      }
-    }
-  }
-
-
-  if(is.null(eta)){
-    e.vec=c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99)
-  }else{
-    e.vec=eta
-  }
-
-  if(is.null(rankJ) | is.null(rankA)){
-    if(method=="permute"){
-      temp <- r.jive::jive(X, Y, center=F, scale=F,orthIndiv = F)
-      rankJ <- temp$rankJ
-      rankA <- temp$rankA
-    }else if(method=="CV"){
-      temp <- sJIVE.ranks(X,Y, eta=eta, max.iter = max.iter, center.scale=center.scale,
-                          reduce.dim=reduce.dim)
-      rankJ <- temp$rankJ
-      rankA <- temp$rankA
-    }else{
-      errorCondition("Invalid method chosen")
-    }
-    cat(paste0("Using rankJ= ", rankJ, " and rankA= ", paste(rankA, collapse = " "), "\n"))
-  }
-
-  if(length(e.vec)>1){
-    #get cv folds
-    n <- length(Y)
-    fold <- list()
-    cutoff <- round(stats::quantile(1:n, c(.2,.4,.6,.8)))
-    fold[[1]] <- 1:cutoff[1]
-    fold[[2]] <- (cutoff[1]+1):cutoff[2]
-    fold[[3]] <- (cutoff[2]+1):cutoff[3]
-    fold[[4]] <- (cutoff[3]+1):cutoff[4]
-    fold[[5]] <- (cutoff[4]+1):n
-
-    cat("Choosing Tuning Parameter: eta \n")
-    err.test <- NA
-    for(e in e.vec){
-      err.fold <- NA
-      for(i in 1:5){
-        #Get train/test sets
-        sub.train.x <- sub.test.x <- list()
-        sub.train.y <- Y[-fold[[i]]]
-        sub.test.y <- Y[fold[[i]]]
-        for(j in 1:length(X)){
-          sub.train.x[[j]] <- X[[j]][,-fold[[i]]]
-          sub.test.x[[j]] <- X[[j]][,fold[[i]]]
-        }
-        temp.mat <- rbind(e * sub.train.x[[1]],
-                          e * sub.train.x[[2]],
-                          (1-e) * sub.train.y)
-        temp.norm <- norm(temp.mat, type="F")
-        fit1 <- sJIVE.converge(sub.train.x, sub.train.y, max.iter = max.iter,
-                               rankJ = rankJ, rankA = rankA, eta = e,
-                               show.message=F, center.scale=center.scale,
-                               reduce.dim=reduce.dim, threshold = temp.norm/50000)
-        #Record Error for fold
-        fit_test1 <- sJIVE.predict(fit1, sub.test.x)
-        if(sum(is.na(fit_test1$Ypred))==0){
-          fit.mse <- sum((fit_test1$Ypred - sub.test.y)^2)/length(sub.test.y)
-          err.fold <- c(err.fold, fit.mse)
-        }else{
-          err.fold <- c(err.fold, NA)
-        }
-      }
-
-      #Record Test Error (using validation set)
-      fit.mse <- mean(err.fold, na.rm = T)
-      err.test <- c(err.test, fit.mse)
-      if(min(err.test, na.rm = T) == fit.mse){
-        best.eta <- e
-      }
-    }
-    cat(paste0("Using eta= ", best.eta, "\n"))
-    test.best <- sJIVE.converge(X, Y, max.iter = max.iter,
-                                rankJ = rankJ, rankA = rankA, eta = best.eta,
-                                threshold = threshold, center.scale=center.scale,
-                                reduce.dim=reduce.dim)
-  }else{
-    test.best <- sJIVE.converge(X, Y, max.iter = max.iter,
-                                rankJ = rankJ, rankA = rankA, eta = e.vec,
-                                threshold = threshold, center.scale=center.scale,
-                                reduce.dim=reduce.dim)
-  }
-
-
-  return(test.best)
-
-}
-
-
 

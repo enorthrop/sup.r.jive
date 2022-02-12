@@ -18,31 +18,47 @@ sJIVE(
 )
 }
 \arguments{
-\item{X}{A list of two or more linked data matrices. Each matrix must have the same number of columns which is assumed to be common.}
+\item{X}{A list of two or more linked data matrices. Each matrix must
+have the same number of columns which is assumed to be common.}
 
-\item{Y}{A numeric outcome expressed as a vector with length equal to the number of columns in each view of \code{X}.}
+\item{Y}{A numeric outcome expressed as a vector with length equal
+to the number of columns in each view of \code{X}.}
 
-\item{rankJ}{An integer specifying the joint rank of the data. If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.}
+\item{rankJ}{An integer specifying the joint rank of the data.
+If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.}
 
-\item{rankA}{A vector specifying the individual ranks of the data. If \code{rankA=NULL}, ranks will be determined by the \code{method} option.}
+\item{rankA}{A vector specifying the individual ranks of the data.
+If \code{rankA=NULL}, ranks will be determined by the \code{method} option.}
 
-\item{eta}{A value or vector of values between 0 and 1. If \code{eta} is a single value, \code{X} will be weighted by \code{eta} and \code{Y} will be weighted by \code{1-eta}. if \code{eta} is a vector, 5-fold CV will pick the \code{eta} that minimizes the test MSE.}
+\item{eta}{A value or vector of values between 0 and 1. If \code{eta}
+is a single value, \code{X} will be weighted by \code{eta} and \code{Y}
+will be weighted by \code{1-eta}. if \code{eta} is a vector, 5-fold
+CV will pick the \code{eta} that minimizes the test MSE.}
 
-\item{max.iter}{The maximum number of iterations for each instance of the sJIVE algorithm.}
+\item{max.iter}{The maximum number of iterations for each instance
+of the sJIVE algorithm.}
 
 \item{threshold}{The threshold used to determine convergence of the algorithm.}
 
-\item{method}{A string with which rank selection method to use. Possible options are "permute" which uses JIVE's permutation method, or "CV" which uses 5-fold forward CV to determine ranks.}
+\item{method}{A string with which rank selection method to use.
+Possible options are "permute" which uses JIVE's permutation method,
+or "CV" which uses 5-fold forward CV to determine ranks.}
 
-\item{center.scale}{A boolean indicating whether or not the data should be centered and scaled.}
+\item{center.scale}{A boolean indicating whether or not the
+data should be centered and scaled.}
 
-\item{reduce.dim}{A boolean indicating whether or not dimension reduction should be used to increase computation efficiency}
+\item{reduce.dim}{A boolean indicating whether or not dimension
+reduction should be used to increase computation efficiency}
 }
 \value{
 Returns an object of class \code{sjive} that contains the following components:
 }
 \description{
-Given multi-source data and a continuous outcome, sJIVE can simultaneously identify shared (joint) and source-specific (individual) underlying structure while building a linear prediction model for an outcome using these structures. These two components are weighted to compromise between explaining variation in the multi-source data and in the outcome.
+Given multi-source data and a continuous outcome, sJIVE can
+simultaneously identify shared (joint) and source-specific (individual)
+underlying structure while building a linear prediction model for an outcome
+using these structures. These two components are weighted to compromise between
+explaining variation in the multi-source data and in the outcome.
 }
 \details{
 The rank of the joint and individual components as well as the weight between the data and the outcome can be pre-specified or adaptively selected within the function.
@@ -51,4 +67,7 @@ The rank of the joint and individual components as well as the weight between th
 train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
 train.y <- rnorm(20)
 train.fit <- sJIVE(X=train.x,Y=train.y,rankJ=1,rankA=c(1,1),eta=0.5)
+}
+\seealso{
+\code{\link{sJIVE.predict}}
 }

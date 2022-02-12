@@ -1,18 +1,24 @@
 Package: sup.r.jive
 Type: Package
-Title: Perform Supervised JIVE Methods -- JIVE Predict, sJIVE, and esJIVE
-Version: 0.1.0
+Title: Supervised JIVE Methods: JIVE Predict, sJIVE, and sesJIVE
+Version: 0.0.0.9000
 Authors@R: c(person("Elise F.", "Palzer", email="north266@umn.edu", role = c("aut", "cre")),
-             person("Eric F.", "Lock", role="aut"),
-             person("Sandra", "Safo", role="aut"))
-Description: Performs supervised extensions to Joint and Individual Variation Explained (JIVE) including JIVE predict, supervised JIVE (sJIVE), and sparse exponential family sJIVE (sesJIVE). Example data files and visualization functions are also included.
-License: MIT + file LICENSE
+             person("Eric F.", "Lock", role=c("aut", "ths")),
+             person("Sandra", "Safo", role=c("aut", "ths")))
+Description: Performs supervised extensions to Joint and Individual Variation Explained
+    (JIVE) including JIVE predict, supervised JIVE (sJIVE), and sparse exponential 
+    family sJIVE (sesJIVE). Example data files and visualization functions are also included.
+License: GPL (>= 3)
+URL: https://arxiv.org/pdf/2102.13278.pdf
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.1.2
 Suggests: 
+    knitr,
+    rmarkdown,
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Imports: 
     stats,
     r.jive
+VignetteBuilder: knitr

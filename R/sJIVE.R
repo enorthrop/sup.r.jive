@@ -169,12 +169,6 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
 #' train.fit <- sJIVE(X=train.x,Y=train.y,rankJ=1,rankA=c(1,1),eta=0.5)
 #' test.fit <- sJIVE.predict(train.fit, newdata = test.x)
 sJIVE.predict <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
-  ##############################################
-  # sJIVE.fit is the output from sJIVE
-  # newdata is list with the same predictors and
-  #     number of datasets as used in sJIVE.fit
-  ##############################################
-
 
   if(sJIVE.fit$rankJ==0 & sum(sJIVE.fit$rankA)==0){
     return(list(Ypred = 0,
@@ -277,7 +271,7 @@ sJIVE.converge <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.001,
   }
   k <- length(X)
 
-
+  Y <- as.vector(Y)
   if(center.scale){
     Y <- as.numeric(scale(as.numeric(Y)))
     for(i in 1:k){

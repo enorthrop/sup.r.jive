@@ -80,11 +80,11 @@ JIVE.pred <- function(X, Y, family="gaussian",
 
   # Fit Model
   if(family=="gaussian"){
-    mod.fit <- lm(Y ~ ., data=jive.mat)
+    mod.fit <- stats::lm(Y ~ ., data=jive.mat)
   }else if(family=="binomial"){
-    mod.fit <- stats::glm(Y ~ ., data=jive.mat, family = binomial)
+    mod.fit <- stats::glm(Y ~ ., data=jive.mat, family = stats::binomial)
   }else if(family == "poisson"){
-    mod.fit <- stats::glm(Y ~ ., data=jive.mat, family = poisson)
+    mod.fit <- stats::glm(Y ~ ., data=jive.mat, family = stats::poisson)
   }else{
     stop(paste0("Model ", family, " doesn't exist"))
   }

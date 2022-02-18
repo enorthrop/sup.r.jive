@@ -181,9 +181,11 @@ sim.data <- function(k, p, n, rankJ, rankI, prop.causal=NULL,
 }
 
 set.seed(021722)
-temp <- sim.data(k=2, p=c(30,30), n=20,
+dat<- sim.data(k=2, p=c(30,30), n=20,
                          rankJ=1, rankI=c(1,1),
                          X.error=0.9, Y.error = 0.1)
-SimData.norm <- list(c(temp$X, temp$Y))
+SimData.norm <- list()
+SimData.norm$X <- dat$X
+SimData.norm$Y <- dat$Y
 
 usethis::use_data(SimData.norm, overwrite = TRUE)

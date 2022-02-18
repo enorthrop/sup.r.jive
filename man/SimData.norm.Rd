@@ -7,11 +7,11 @@
 \format{
 A list with 3 elements
 \describe{
-  \item{SimData.norm[[1]]}{A centered and scaled data matrix with 30 predictors (rows)
-  and 20 people (columns)}
-  \item{SimData.norm[[2]]}{A centered and scaled data matrix with 30 predictors (rows)
-  and 20 people (columns)}
-  \item{SimData.norm[[2]]}{A centered and scaled outcome vector of length 20}
+  \item{SimData.norm[[1]]}{A centered and scaled data matrix
+  with 30 predictors (rows) and 20 people (columns)}
+  \item{SimData.norm[[2]]}{A centered and scaled data matrix
+  with 30 predictors (rows) and 20 people (columns)}
+  \item{SimData.norm[[3]]}{A centered and scaled outcome vector of length 20}
   ...
 }
 }

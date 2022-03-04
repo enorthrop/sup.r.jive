@@ -97,9 +97,6 @@ plotHeatmap <- function(result, order_by=-1,
   Image_Indiv = list()
   for(i in 1:l){ Image_Indiv[[i]] = as.matrix(indiv[[i]][row.orders[[i]],col.order]) }
 
-  Image_Noise = list()
-  for(i in 1:l){ Image_Noise[[i]] = Image_Data[[i]]-Image_Joint[[i]]-Image_Indiv[[i]] }
-
   Image_Outcome = as.matrix(dat$Y[col.order])
   Image_YJoint = as.matrix(Yjoint[col.order])
   Image_YIndiv = list()
@@ -219,10 +216,102 @@ plotFittedValues <- function(x){
 #'
 #' Display summary data of a JIVE.pred, sJIVE, or sesJIVE model
 #'
-#' @param x TBD
+#' @param fitted.model A fitted sJIVE model
+#'
+#' @details This function gives summary results from any
+#' supervised JIVE method. Amount of variance explained
+#' is expressed in terms of the standardized Frobenious
+#' norm. Partial R-squared values are calculated for the
+#' joint and individual components. If rank=1, a z-statistic
+#' is calculated to determine the p-value. If rank>1, an F-statistic
+#' is calculated.
 #'
 #' @return Summary measures
 #' @export
-summary.supJIVE <- function(x){
-  print("Insert Soon x4")
+summary.supJIVE <- function(fitted.model){
+  #If class sJIVE:
+  #cat("\n $ranks \n")
+  k <- length(fitted.model$data$X)
+  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
+                    Rank = c(fitted.model$rankJ, fitted.model$rankA))
+
+
+  #cat("\n $Variance \n")
+  var.table <- NULL; ThetaS <- 0
+  for (i in 1:k) {
+    j <- fitted.model$U_I[[i]] %*% fitted.model$S_J
+    a <- fitted.model$W_I[[i]] %*% fitted.model$S_I[[i]]
+    ssj <- norm(j, type="f")^2
+    ssi <- norm(a, type="f")^2
+    sse <- norm(fitted.model$data$X[[i]] -j-a, type="f")^2
+    sst <- norm(fitted.model$data$X[[i]], type="f")^2
+    var.table <- cbind(var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+    ThetaS <- ThetaS + fitted.model$theta2[[i]] %*% fitted.model$S_I[[i]]
+  }
+  j <- fitted.model$theta1 %*% fitted.model$S_J
+  ssj <- norm(j, type="f")^2
+  ssi <- norm(ThetaS, type="f")^2
+  sse <- norm(as.matrix(fitted.model$data$Y-j-ThetaS), type="f")^2
+  sst <- norm(as.matrix(fitted.model$data$Y), type="f")^2
+  var.table <- cbind(c("Joint", "Indiv", "Error"),
+        var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+  var.table <- as.data.frame(var.table)
+  names(var.table) <- c("Component", paste0("X", 1:k), "Y")
+
+  #cat("\n $pred.model \n")
+  j <- fitted.model$theta1 %*% fitted.model$S_J
+  a <- list(); a2 <- 0
+  sse <- sum((fitted.model$data$Y - j)^2)
+  ssr <- sum((mean(fitted.model$data$Y) - j)^2)
+  ssnum <-  sum((mean(j) - j)^2)
+  coefs <- fitted.model$theta1[1]
+  for(i in 1:k){
+    a[[i]] <- test.best$theta2[[i]] %*% test.best$S_I[[i]]
+    a2 <- a2 + a[[i]]
+    sse <- c(sse, sum((fitted.model$data$Y - a[[i]])^2))
+    ssr <- c(ssr, sum((mean(fitted.model$data$Y) - a[[i]])^2))
+    ssnum <- c(ssnum, sum((mean(a[[i]]) - a[[i]])^2))
+    coefs <- c(coefs, fitted.model$theta2[[i]][1])
+  }
+
+  sse_full <- sum((fitted.model$data$Y - (j+a2))^2)
+  sse_partial <- sum((fitted.model$data$Y - a2)^2)
+  for(i in 1:k){
+    temp <- j
+    for(ii in 1:k){
+      if(i != ii){temp <- temp + a[[i]]}
+    }
+    sse_partial <- c(sse_partial, sum((fitted.model$data$Y - temp)^2))
+  }
+  r_squared <- (sse_partial - sse_full)/sse_partial
+  ranks <- c(fitted.model$rankJ, fitted.model$rankA)
+
+  b <- which(ranks>1)
+  n <- length(fitted.model$data$Y)
+  if(length(b)>0){
+  msr <- ssr[b] / (ranks[b]-1)
+  mse <- sse[b] / (n-ranks[b])
+  fstat <- msr/mse; pval <- NULL
+  for(j in 1:length(b)){
+    pval <- c(pval, 1-pf(abs(fstat[j]), df1=ranks[b[j]]-1,
+                         df2=n-ranks[b[j]], lower.tail = T) )
+  }}
+  bb <- which(ranks==1)
+  if(length(bb)>0){
+    se <- sqrt((1/(n-1) * sse[bb])  / ssnum[bb] )
+    z.stat <- coefs[bb]/se
+    pval2 <- 2*(1-pnorm(abs(z.stat), lower.tail = T))
+  }
+  pvalfinal <- ranks*1
+  if(length(b)>0) pvalfinal[which(ranks>1)] <- pval
+  if(length(bb)>0) pvalfinal[which(ranks==1)] <- pval2
+
+  tbl <- data.frame(Component=c("Joint", paste0("Indiv", 1:k)),
+                    Rank = ranks,
+                    Partial_R2=r_squared,
+                    Pvalue=pvalfinal)
+
+  return(list(eta=fitted.model$eta, ranks=tbl_ranks,
+              variance=var.table,
+              pred.model=tbl))
 }

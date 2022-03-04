@@ -144,7 +144,8 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
                                 reduce.dim=reduce.dim)
   }
 
-
+  test.best$data$X <- X
+  test.best$data$Y <- Y
   return(test.best)
 
 }

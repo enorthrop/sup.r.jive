@@ -5,13 +5,12 @@
 \alias{SimData.norm}
 \title{Multi-source simulated dataset with continuous outcome.}
 \format{
-A list with 3 elements
+A list
 \describe{
-  \item{SimData.norm[[1]]}{A centered and scaled data matrix
+  \item{X}{A list of length 2. Each element in the list is a
+   centered and scaled data matrix
   with 30 predictors (rows) and 20 people (columns)}
-  \item{SimData.norm[[2]]}{A centered and scaled data matrix
-  with 30 predictors (rows) and 20 people (columns)}
-  \item{SimData.norm[[3]]}{A centered and scaled outcome vector of length 20}
+  \item{Y}{A centered and scaled outcome vector of length 20}
   ...
 }
 }

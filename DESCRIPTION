@@ -16,12 +16,13 @@ RoxygenNote: 7.1.2
 Suggests: 
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0),
-    withr
+    testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Imports: 
     stats,
-    r.jive
+    r.jive,
+    withr,
+    gplots
 VignetteBuilder: knitr
 Depends: 
     R (>= 2.10)

@@ -4,14 +4,23 @@
 \alias{summary.supJIVE}
 \title{Summary of supervised JIVE output}
 \usage{
-\method{summary}{supJIVE}(x)
+\method{summary}{supJIVE}(object)
 }
 \arguments{
-\item{x}{TBD}
+\item{object}{A fitted sJIVE model}
 }
 \value{
 Summary measures
 }
 \description{
 Display summary data of a JIVE.pred, sJIVE, or sesJIVE model
+}
+\details{
+This function gives summary results from any
+supervised JIVE method. Amount of variance explained
+is expressed in terms of the standardized Frobenious
+norm. Partial R-squared values are calculated for the
+joint and individual components. If rank=1, a z-statistic
+is calculated to determine the p-value. If rank>1, an F-statistic
+is calculated.
 }

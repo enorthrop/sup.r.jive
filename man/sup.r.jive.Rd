@@ -5,11 +5,12 @@
 \alias{sup.r.jive}
 \title{sup.r.jive: Supervised JIVE methods}
 \description{
-The foo package provides three categories of important functions:
-foo, bar and baz.
+The sup.r.jive package performs supervised joint and individual
+explained (JIVE) methods including JIVE.predict, supervised JIVE (sJIVE),
+and sparse exponential family JIVE (sesJIVE).
 }
-\section{Foo functions}{
+\section{sup.r.jive functions}{
 
-The foo functions ...
+INSERT DESCRIPTION OF FUNCTIONS HERE ...
 }
 

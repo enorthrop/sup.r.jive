@@ -76,7 +76,7 @@ The `sup.r.jive` package contains 3 visualization tools that help display the re
 ******** TO BE CONTINUED *************
 
 ```{r}
-plotHeatmap(fit)
+plotHeatmap(fit) 
 ```
 
 

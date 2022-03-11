@@ -24,7 +24,7 @@ The goal of sup.r.jive is to perform supervised extensions to Joint and Individu
 
 You can install the development version of sup.r.jive from [GitHub](https://github.com/) with:
 
-``` r
+```r
 # install.packages("devtools")
 devtools::install_github("enorthrop/sup.r.jive")
 ```

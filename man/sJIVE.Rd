@@ -75,5 +75,5 @@ train.fit <- sJIVE(X=X,Y=Y,rankJ=1,rankA=c(1,1),eta=0.5)
 }
 }
 \seealso{
-\code{\link{sJIVE.predict}}
+\code{\link{predict.sJIVE}}
 }

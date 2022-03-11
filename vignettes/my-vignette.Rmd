@@ -1,5 +1,5 @@
 ---
-title: "my-vignette"
+title: "sJIVE Example"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{my-vignette}
@@ -14,6 +14,80 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup}
+This vignette illustrates an example on how to use the `sup.r.jive` package to run supervised Joint and Variation Explained (sJIVE). sJIVE was developed by Palzer et al. (2022) and is a multi-source supervised method that can simultanesously identify joint and individual components among the data sources, and build a linear prediction model.
+
+Here, we avoid methodological details and focus on the functionality of the `sup.r.jive` package.
+
+\section{Loading the data}
+
+If you haven't used this package before, you'll have to install it first. You can install the development version of `sup.r.jive` from [GitHub](https://github.com/) with:
+
+```{r}
+# install.packages("devtools")
+devtools::install_github("enorthrop/sup.r.jive")
 library(sup.r.jive)
 ```
+
+
+For this example, we will use the `SimData.norm` data file contained in this package. After loading the data, we can see that it contains 2 data matrices saved as a list (`X`) and contains a continuous outcome vector (`Y`). Note that both data matrices have 30 rows or predictors, and have 20 columns or observations. The number of rows need not match across sources, but each source and the outcome must be collected on the same group of individuals.
+
+```{r}
+data("SimData.norm")
+str(SimData.norm)
+
+```
+
+\section{Running sJIVE}
+
+Let's say that we want to uncover the joint structure between the data sources, each source's individual structure, as well as predict the outcome `Y`. We can calculate this by running the `sJIVE()` function. By default, the function will center and scale both `X` and `Y`. The ranks of the joint and individual components will be calculated by the permutation approach proposed in JIVE by Lock et al. (2013), and the tuning parameter, `eta`, will be calculated by 5-fold cross-validation.
+
+
+```{r}
+fit <- sJIVE(X=SimData.norm$X, Y=SimData.norm$Y, rankJ = 1, rankA = c(1,1))
+
+```
+
+The output shows the final ranks for the joint and individual components as well as the tuning parameter and the number of iterations it took to reach convergence. By printing the model output, we can find similar information.
+
+```{r}
+fit
+```
+Or if we want a more detailed summary, we can do the following:
+
+```{r}
+summary(fit)
+```
+
+If we want to make predictions, we can do so using the predict function. Note that the Y predictions are for the centered and scaled outcome. `fit$data` contains the centered and scaled data, which should be used when assessing prediction accuracy of the method.
+
+
+```{r}
+
+fit.pred <- predict(fit, newdata = SimData.norm$X)
+#MSE
+sum((fit$data$Y-fit.pred$Ypred)^2)/length(fit$data$Y)
+```
+
+
+#Visualization and interpretation
+
+The `sup.r.jive` package contains 3 visualization tools that help display the results. Each of the 3 functions will work for an object of class JIVE.pred, sJIVE, or sesJIVE as its input, but in this vignette, we will briefly discuss each function using the fitted sJIVE model from above.
+
+******** TO BE CONTINUED *************
+
+```{r}
+plotHeatmap(fit)
+```
+
+
+
+\section{References}
+
+
+Palzer, EF, C Wendt, R Bowler, CP Hersh, SE Safo, and EF Lock. 2021. "sJIVE: Supervised Joint and Individual Variation Explained." Pre-print on arXiv.
+
+Lock, EF, KA Hoadley, JS Marron, and AB Nobel. 2013. “Joint and Individual Variation Explained (JIVE) for Integrated Analysis of Multiple Data Types.” \textit{The Annals of Applied Statistics} 7 (1): 523–42.
+
+
+
+

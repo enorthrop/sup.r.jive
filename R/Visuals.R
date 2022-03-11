@@ -118,7 +118,7 @@ plotHeatmap <- function(result, order_by=-1,
   Vals =c(Vals, length(Vals)+1)
   layoutVals =  sapply(Vals, function(x) (x*(3+l)-4):(x*(3+l)))
   graphics::layout(layoutVals, heights = Heights,widths = Widths)
-  graphics::layout.show(max(Vals)*(3+l))
+  #graphics::layout.show(max(Vals)*(3+l))
   #joint
   CEX <- gplots::textplot("  Joint  ", col="white") ###Plot this first, to get cex size
   graphics::text(.5,1,"Joint", cex=CEX)
@@ -211,107 +211,3 @@ plotFittedValues <- function(x){
 }
 
 
-
-#' Summary of supervised JIVE output
-#'
-#' Display summary data of a JIVE.pred, sJIVE, or sesJIVE model
-#'
-#' @param object A fitted sJIVE model
-#'
-#' @details This function gives summary results from any
-#' supervised JIVE method. Amount of variance explained
-#' is expressed in terms of the standardized Frobenious
-#' norm. Partial R-squared values are calculated for the
-#' joint and individual components. If rank=1, a z-statistic
-#' is calculated to determine the p-value. If rank>1, an F-statistic
-#' is calculated.
-#'
-#' @return Summary measures
-#' @export
-summary.supJIVE <- function(object){
-  #If class sJIVE:
-  #cat("\n $ranks \n")
-  k <- length(object$data$X)
-  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
-                    Rank = c(object$rankJ, object$rankA))
-
-
-  #cat("\n $Variance \n")
-  var.table <- NULL; ThetaS <- 0
-  for (i in 1:k) {
-    j <- object$U_I[[i]] %*% object$S_J
-    a <- object$W_I[[i]] %*% object$S_I[[i]]
-    ssj <- norm(j, type="f")^2
-    ssi <- norm(a, type="f")^2
-    sse <- norm(object$data$X[[i]] -j-a, type="f")^2
-    sst <- norm(object$data$X[[i]], type="f")^2
-    var.table <- cbind(var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
-    ThetaS <- ThetaS + object$theta2[[i]] %*% object$S_I[[i]]
-  }
-  j <- object$theta1 %*% object$S_J
-  ssj <- norm(j, type="f")^2
-  ssi <- norm(ThetaS, type="f")^2
-  sse <- norm(as.matrix(object$data$Y-j-ThetaS), type="f")^2
-  sst <- norm(as.matrix(object$data$Y), type="f")^2
-  var.table <- cbind(c("Joint", "Indiv", "Error"),
-        var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
-  var.table <- as.data.frame(var.table)
-  names(var.table) <- c("Component", paste0("X", 1:k), "Y")
-
-  #cat("\n $pred.model \n")
-  j <- object$theta1 %*% object$S_J
-  a <- list(); a2 <- 0
-  sse <- sum((object$data$Y - j)^2)
-  ssr <- sum((mean(object$data$Y) - j)^2)
-  ssnum <-  sum((mean(j) - j)^2)
-  coefs <- object$theta1[1]
-  for(i in 1:k){
-    a[[i]] <- object$theta2[[i]] %*% object$S_I[[i]]
-    a2 <- a2 + a[[i]]
-    sse <- c(sse, sum((object$data$Y - a[[i]])^2))
-    ssr <- c(ssr, sum((mean(object$data$Y) - a[[i]])^2))
-    ssnum <- c(ssnum, sum((mean(a[[i]]) - a[[i]])^2))
-    coefs <- c(coefs, object$theta2[[i]][1])
-  }
-
-  sse_full <- sum((object$data$Y - (j+a2))^2)
-  sse_partial <- sum((object$data$Y - a2)^2)
-  for(i in 1:k){
-    temp <- j
-    for(ii in 1:k){
-      if(i != ii){temp <- temp + a[[i]]}
-    }
-    sse_partial <- c(sse_partial, sum((object$data$Y - temp)^2))
-  }
-  r_squared <- (sse_partial - sse_full)/sse_partial
-  ranks <- c(object$rankJ, object$rankA)
-
-  b <- which(ranks>1)
-  n <- length(object$data$Y)
-  if(length(b)>0){
-  msr <- ssr[b] / (ranks[b]-1)
-  mse <- sse[b] / (n-ranks[b])
-  fstat <- msr/mse; pval <- NULL
-  for(j in 1:length(b)){
-    pval <- c(pval, 1-stats::pf(abs(fstat[j]), df1=ranks[b[j]]-1,
-                         df2=n-ranks[b[j]], lower.tail = T) )
-  }}
-  bb <- which(ranks==1)
-  if(length(bb)>0){
-    se <- sqrt((1/(n-1) * sse[bb])  / ssnum[bb] )
-    z.stat <- coefs[bb]/se
-    pval2 <- 2*(1-stats::pnorm(abs(z.stat), lower.tail = T))
-  }
-  pvalfinal <- ranks*1
-  if(length(b)>0) pvalfinal[which(ranks>1)] <- pval
-  if(length(bb)>0) pvalfinal[which(ranks==1)] <- pval2
-
-  tbl <- data.frame(Component=c("Joint", paste0("Indiv", 1:k)),
-                    Rank = ranks,
-                    Partial_R2=r_squared,
-                    Pvalue=pvalfinal)
-
-  return(list(eta=object$eta, ranks=tbl_ranks,
-              variance=var.table,
-              pred.model=tbl))
-}

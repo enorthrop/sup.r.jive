@@ -39,7 +39,7 @@
 #' @return Returns an object of class \code{sjive}.
 #' @export
 #'
-#' @seealso \code{\link{sJIVE.predict}}
+#' @seealso \code{\link{predict.sJIVE}}
 #'
 #' @examples
 #' train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
@@ -52,7 +52,8 @@
 sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99), max.iter=1000,
                   threshold = 0.001,  method="permute",
                   center.scale=TRUE, reduce.dim = TRUE){
-
+  origX <- X
+  origY <- Y
   k <- length(X)
   n <- ncol(X[[1]])
   if(length(Y) != n){stop("Number of columns differ between datasets")}
@@ -69,10 +70,12 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
 
   if(is.null(rankJ) | is.null(rankA)){
     if(method=="permute"){
-      temp <- r.jive::jive(X, Y, center=F, scale=F,orthIndiv = F)
+      cat("Estimating Ranks via permutation \n")
+      temp <- r.jive::jive(X, Y, center=F, scale=F,orthIndiv = F, showProgress = F)
       rankJ <- temp$rankJ
       rankA <- temp$rankA
     }else if(method=="CV"){
+      cat("Estimating Ranks via cross-validation \n")
       temp <- sJIVE.ranks(X,Y, eta=eta, max.iter = max.iter, center.scale=center.scale,
                           reduce.dim=reduce.dim)
       rankJ <- temp$rankJ
@@ -116,7 +119,7 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
                                show.message=F, center.scale=center.scale,
                                reduce.dim=reduce.dim, threshold = temp.norm/50000)
         #Record Error for fold
-        fit_test1 <- sJIVE.predict(fit1, sub.test.x)
+        fit_test1 <- predict(fit1, sub.test.x)
         if(sum(is.na(fit_test1$Ypred))==0){
           fit.mse <- sum((fit_test1$Ypred - sub.test.y)^2)/length(sub.test.y)
           err.fold <- c(err.fold, fit.mse)
@@ -144,8 +147,6 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
                                 reduce.dim=reduce.dim)
   }
 
-  test.best$data$X <- X
-  test.best$data$Y <- Y
   return(test.best)
 
 }
@@ -168,8 +169,8 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
 #' train.y <- rnorm(20)
 #' test.x <- list(matrix(rnorm(600), ncol=40),matrix(rnorm(400), ncol=40))
 #' train.fit <- sJIVE(X=train.x,Y=train.y,rankJ=1,rankA=c(1,1),eta=0.5)
-#' test.fit <- sJIVE.predict(train.fit, newdata = test.x)
-sJIVE.predict <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
+#' test.fit <- predict(train.fit, newdata = test.x)
+predict.sJIVE <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
 
   if(sJIVE.fit$rankJ==0 & sum(sJIVE.fit$rankA)==0){
     return(list(Ypred = 0,
@@ -253,6 +254,144 @@ sJIVE.predict <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
 }
 
 
+#' Print.sJIVE
+#'
+#' @param obj a fitted sJIVE model
+#'
+#' @return
+#' @export
+print.sJIVE <- function(obj) {
+  k <- length(obj$data$X)
+  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
+                          Rank = c(obj$rankJ, obj$rankA))
+  tbl_coef <- NULL
+  if(obj$rankJ>0){
+  for(i in 1:obj$rankJ){
+    new.col=c(paste0("Joint_",i), obj$theta1[i])
+    tbl_coef <- cbind(tbl_coef, new.col)
+  }}
+  for(j in 1:k){
+    if(obj$rankA[j]>0){
+      for(i in 1:obj$rankA[j]){
+        new.col=c(paste0("Individual",j,"_", i), obj$theta2[[j]][i])
+        tbl_coef <- cbind(tbl_coef, new.col)
+      }}
+  }
+
+  cat("eta:", obj$eta, "\n")
+  cat("Ranks: \n")
+  for(i in 1:nrow(tbl_ranks)){
+    cat("   ",  unlist(tbl_ranks[i,]), "\n")
+  }
+  cat("Coefficients: \n")
+  for(i in 1:ncol(tbl_coef)){
+    cat("   ",  unlist(tbl_coef[,i]), "\n")
+  }
+}
+
+
+#' Summary.sJIVE
+#'
+#' Display summary data of an sJIVE model
+#'
+#' @param object A fitted sJIVE model
+#'
+#' @details This function gives summary results from
+#' sJIVE. Amount of variance explained
+#' is expressed in terms of the standardized Frobenious
+#' norm. Partial R-squared values are calculated for the
+#' joint and individual components. If rank=1, a z-statistic
+#' is calculated to determine the p-value. If rank>1, an F-statistic
+#' is calculated.
+#'
+#' @return Summary measures
+#' @export
+summary.sJIVE <- function(object){
+  k <- length(object$data$X)
+  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
+                          Rank = c(object$rankJ, object$rankA))
+
+
+  #cat("\n $Variance \n")
+  var.table <- NULL; ThetaS <- 0
+  for (i in 1:k) {
+    j <- object$U_I[[i]] %*% object$S_J
+    a <- object$W_I[[i]] %*% object$S_I[[i]]
+    ssj <- norm(j, type="f")^2
+    ssi <- norm(a, type="f")^2
+    sse <- norm(object$data$X[[i]] -j-a, type="f")^2
+    sst <- norm(object$data$X[[i]], type="f")^2
+    var.table <- cbind(var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+    ThetaS <- ThetaS + object$theta2[[i]] %*% object$S_I[[i]]
+  }
+  j <- object$theta1 %*% object$S_J
+  ssj <- norm(j, type="f")^2
+  ssi <- norm(ThetaS, type="f")^2
+  sse <- norm(as.matrix(object$data$Y-j-ThetaS), type="f")^2
+  sst <- norm(as.matrix(object$data$Y), type="f")^2
+  var.table <- cbind(c("Joint", "Indiv", "Error"),
+                     var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+  var.table <- as.data.frame(var.table)
+  names(var.table) <- c("Component", paste0("X", 1:k), "Y")
+
+  #cat("\n $pred.model \n")
+  j <- object$theta1 %*% object$S_J
+  a <- list(); a2 <- 0
+  sse <- sum((object$data$Y - j)^2)
+  ssr <- sum((mean(object$data$Y) - j)^2)
+  ssnum <-  sum((mean(j) - j)^2)
+  coefs <- object$theta1[1]
+  for(i in 1:k){
+    a[[i]] <- object$theta2[[i]] %*% object$S_I[[i]]
+    a2 <- a2 + a[[i]]
+    sse <- c(sse, sum((object$data$Y - a[[i]])^2))
+    ssr <- c(ssr, sum((mean(object$data$Y) - a[[i]])^2))
+    ssnum <- c(ssnum, sum((mean(a[[i]]) - a[[i]])^2))
+    coefs <- c(coefs, object$theta2[[i]][1])
+  }
+
+  sse_full <- sum((object$data$Y - (j+a2))^2)
+  sse_partial <- sum((object$data$Y - a2)^2)
+  for(i in 1:k){
+    temp <- j
+    for(ii in 1:k){
+      if(i != ii){temp <- temp + a[[i]]}
+    }
+    sse_partial <- c(sse_partial, sum((object$data$Y - temp)^2))
+  }
+  r_squared <- (sse_partial - sse_full)/sse_partial
+  ranks <- c(object$rankJ, object$rankA)
+
+  b <- which(ranks>1)
+  n <- length(object$data$Y)
+  if(length(b)>0){
+    msr <- ssr[b] / (ranks[b]-1)
+    mse <- sse[b] / (n-ranks[b])
+    fstat <- msr/mse; pval <- NULL
+    for(j in 1:length(b)){
+      pval <- c(pval, 1-stats::pf(abs(fstat[j]), df1=ranks[b[j]]-1,
+                                  df2=n-ranks[b[j]], lower.tail = T) )
+    }}
+  bb <- which(ranks==1)
+  if(length(bb)>0){
+    se <- sqrt((1/(n-1) * sse[bb])  / ssnum[bb] )
+    z.stat <- coefs[bb]/se
+    pval2 <- 2*(1-stats::pnorm(abs(z.stat), lower.tail = T))
+  }
+  pvalfinal <- ranks*1
+  if(length(b)>0) pvalfinal[which(ranks>1)] <- pval
+  if(length(bb)>0) pvalfinal[which(ranks==1)] <- pval2
+
+  tbl <- data.frame(Component=c("Joint", paste0("Indiv", 1:k)),
+                    Rank = ranks,
+                    Partial_R2=r_squared,
+                    Pvalue=pvalfinal)
+
+  return(list(eta=object$eta, ranks=tbl_ranks,
+              variance=var.table,
+              pred.model=tbl))
+}
+
 ########################## Helper Functions: #######################
 sJIVE.converge <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.001,
                            show.error =F, rankJ=NULL, rankA=NULL,
@@ -261,7 +400,8 @@ sJIVE.converge <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.001,
   #Y is continuous vector centered and scaled
   #eta is between 0 and 1, when eta=NULL, no weighting is done
   #rank is prespecified rank of svd approximation
-
+  origX <- X
+  origY <- Y
 
   #Set Ranks
   if(is.null(rankJ) | is.null(rankA)){
@@ -520,10 +660,15 @@ sJIVE.converge <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.001,
     }
   }
 
-  return(list(S_J=Sj.new, S_I=S.new, U_I=U_i, W_I=W,
-              theta1=theta_1, theta2=theta_2, fittedY=Ypred,
-              error=error, all.error=e.vec,
-              iterations = iter, rankJ=rankJ, rankA=rankA, eta=eta))
+  result <- list(S_J=Sj.new, S_I=S.new, U_I=U_i, W_I=W,
+       theta1=theta_1, theta2=theta_2, fittedY=Ypred,
+       error=error, all.error=e.vec,
+       iterations = iter, rankJ=rankJ, rankA=rankA, eta=eta,
+       data=list(X=origX,Y=origY))
+
+  class(result) <- "sJIVE"
+
+  return(result)
 }
 
 sJIVE.ranks <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.01,
@@ -560,7 +705,7 @@ sJIVE.ranks <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.01,
                               rankJ = rankJ, rankA = rankA, show.message = F,
                               center.scale=center.scale,
                               reduce.dim=reduce.dim)
-    new.data <- sJIVE.predict(fit.old, test.X)
+    new.data <- predict(fit.old, test.X)
     error.old <- c(error.old, sum((new.data$Ypred-test.Y)^2) )
   }
   err.old <- mean(error.old)
@@ -585,7 +730,7 @@ sJIVE.ranks <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.01,
                                 rankJ = rankJ+1, rankA = rankA, show.message=F,
                                 center.scale=center.scale,
                                 reduce.dim=reduce.dim)
-        new.data <- sJIVE.predict(fit.j, test.X)
+        new.data <- predict(fit.j, test.X)
         error.j <- c(error.j, sum((new.data$Ypred-test.Y)^2) )
       }else{
         error.j <- c(error.j, 99999999)
@@ -602,7 +747,7 @@ sJIVE.ranks <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.01,
                                   rankJ = rankJ, rankA = rankA.new, show.message=F,
                                   center.scale=center.scale,
                                   reduce.dim=reduce.dim)
-          new.data <- sJIVE.predict(fit.a, test.X)
+          new.data <- predict(fit.a, test.X)
           if(length(error.a)<j){error.a[[j]] <- NA}
           error.a[[j]] <- c(error.a[[j]], sum((new.data$Ypred-test.Y)^2) )
         }else{

@@ -26,7 +26,7 @@ test_that("sJIVE.predict works", {
   withr::with_seed( 2,
        test.y <- rnorm(20)
   )
-  test.fit <- sJIVE.predict(train.fit, newdata = test.x)
+  test.fit <- predict(train.fit, newdata = test.x)
   test.mse <- round(sum((test.y-test.fit$Ypred)^2),3)
   expect_equal(test.mse, 361.068)
 })

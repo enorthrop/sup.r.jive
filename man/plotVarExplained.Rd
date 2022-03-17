@@ -8,6 +8,8 @@ plotVarExplained(result, col = c("grey20", "grey43", "grey65"))
 }
 \arguments{
 \item{result}{a fitted JIVE.pred, sJIVE, or sesJIVE model}
+
+\item{col}{a vector containing the 3 colors that should be used for the barplot}
 }
 \value{
 A set of barplots

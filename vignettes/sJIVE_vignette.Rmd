@@ -2,7 +2,7 @@
 title: "sJIVE Example"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{my-vignette}
+  %\VignetteIndexEntry{sJIVE Example}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -91,6 +91,10 @@ To Be Continued
 plotVarExplained(fit)
 
 ```
+
+
+### plotFittedValues()
+
 
 
 ## References

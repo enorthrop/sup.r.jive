@@ -8,6 +8,8 @@ plotFittedValues(x, ...)
 }
 \arguments{
 \item{x}{TBD}
+
+\item{...}{Other arguments}
 }
 \value{
 A diagnostic plot

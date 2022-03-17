@@ -119,7 +119,7 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
                                show.message=F, center.scale=center.scale,
                                reduce.dim=reduce.dim, threshold = temp.norm/50000)
         #Record Error for fold
-        fit_test1 <- predict(fit1, sub.test.x)
+        fit_test1 <- stats::predict(fit1, sub.test.x)
         if(sum(is.na(fit_test1$Ypred))==0){
           fit.mse <- sum((fit_test1$Ypred - sub.test.y)^2)/length(sub.test.y)
           err.fold <- c(err.fold, fit.mse)
@@ -705,7 +705,7 @@ sJIVE.ranks <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.01,
                               rankJ = rankJ, rankA = rankA, show.message = F,
                               center.scale=center.scale,
                               reduce.dim=reduce.dim)
-    new.data <- predict(fit.old, test.X)
+    new.data <- stats::predict(fit.old, test.X)
     error.old <- c(error.old, sum((new.data$Ypred-test.Y)^2) )
   }
   err.old <- mean(error.old)
@@ -730,7 +730,7 @@ sJIVE.ranks <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.01,
                                 rankJ = rankJ+1, rankA = rankA, show.message=F,
                                 center.scale=center.scale,
                                 reduce.dim=reduce.dim)
-        new.data <- predict(fit.j, test.X)
+        new.data <- stats::predict(fit.j, test.X)
         error.j <- c(error.j, sum((new.data$Ypred-test.Y)^2) )
       }else{
         error.j <- c(error.j, 99999999)
@@ -747,7 +747,7 @@ sJIVE.ranks <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.01,
                                   rankJ = rankJ, rankA = rankA.new, show.message=F,
                                   center.scale=center.scale,
                                   reduce.dim=reduce.dim)
-          new.data <- predict(fit.a, test.X)
+          new.data <- stats::predict(fit.a, test.X)
           if(length(error.a)<j){error.a[[j]] <- NA}
           error.a[[j]] <- c(error.a[[j]], sum((new.data$Ypred-test.Y)^2) )
         }else{

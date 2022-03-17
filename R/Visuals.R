@@ -5,7 +5,8 @@
 
 #' Plot Heatmap Generic Function
 #'
-#' @param x
+#' @param x TBD
+#' @param ... Other arguments
 #'
 #' @return
 #' @export
@@ -20,6 +21,7 @@ plotHeatmap <- function(x, ...) {
 #' JIVE.pred, sJIVE, or sesJIVE model
 #'
 #' @param x TBD
+#' @param ... Other arguments
 #'
 #' @return A diagnostic plot
 #' @export
@@ -228,8 +230,8 @@ plotHeatmap.sJIVE <- function(result, order_by=-1,
 #'
 #' @examples
 #' data(SimData.norm)
-#' fit <- JIVEpred(X=SimData.norm$X,Y=SimData.norm$Y,
-#'                   rankJ=1,rankA=c(1,1))
+#' fit <- JIVE.pred(X=SimData.norm$X,Y=SimData.norm$Y,
+#'                   rankJ=1,rankI=c(1,1))
 #' plotHeatmap(fit,  ylab="outcome",
 #'         xlab=c("Metabolomic", "Proteomic"), ycex=0.9)
 #'
@@ -396,25 +398,87 @@ show.image = function(Image,ylab=''){
 #' to show the amount of variance explained by the model results
 #'
 #' @param result a fitted JIVE.pred, sJIVE, or sesJIVE model
+#' @param col a vector containing the 3 colors that should be used for the barplot
 #'
 #' @return A set of barplots
 #' @export
 plotVarExplained <- function(result, col=c("grey20", "grey43", "grey65")){
 
-  old.par <- par(no.readonly = TRUE) # all par settings which could be changed
-  on.exit(par(old.par))
+  old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
+  on.exit(graphics::par(old.par))
 
   s.result <- summary(result)
   l <- ncol(s.result$variance)-2
 
-  par(mar=c(5,4,4,0))
-  layout(matrix(c(1,2),1,2),heights=c(5,5),widths=c(5,2))
-  barplot(as.matrix(s.result$variance[,-1]),col = col,main = "Variation Explained",
+  graphics::par(mar=c(5,4,4,0))
+  graphics::layout(matrix(c(1,2),1,2),heights=c(5,5),widths=c(5,2))
+  graphics::barplot(as.matrix(s.result$variance[,-1]),col = col,main = "Variation Explained",
           names.arg=names(s.result$variance)[-1])
-  par(mar=c(0,0,0,0))
-  plot.new()
-  legend(x=0.05,y=0.8,legend=c('Joint','Individual','Residual'),
+  graphics::par(mar=c(0,0,0,0))
+  graphics::plot.new()
+  graphics::legend(x=0.05,y=0.8,legend=c('Joint','Individual','Residual'),
          bty = "n",fill= col)
 }
 
 ###### Plot Fitted Values for each class ######
+
+#' Plot Fitted Values - sJIVE
+#'
+#' @param result A fitted sJIVE model
+#' @param graph A value: 0, 1, or 2.
+#'
+#' @return
+#' @export
+plotFittedValues.sJIVE <- function(result, graph=0){
+  old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
+  on.exit(graphics::par(old.par))
+
+  rsd <- result$fittedY - result$data$Y
+  ylims <- max(abs(rsd))
+
+  if(graph==0){
+    graphics::par(mfrow=c(1,2), mar=c(4.5,4,3,1))
+  }
+  if(graph !=2){
+     plot(result$fittedY, rsd, ylab="Residuals",
+         xlab="Fitted Y values", main="Residuals vs. Fitted",
+         ylim=c(-ylims, ylims))
+    graphics::abline(h = 0, lty = 3, col = "gray")
+  }
+  if(graph != 1){
+    stats::qqnorm(rsd, ylab="", ylim=c(-ylims, ylims))
+    stats::qqline(rsd, lty = 3, col = "gray50")
+  }
+}
+
+
+
+#' Plot Fitted Values - JIVEpred
+#'
+#' @param result A fitted JIVEpred model
+#' @param graph A value: 0, 1, or 2
+#'
+#' @return
+#' @export
+plotFittedValues.JIVEpred <- function(result, graph=0){
+  old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
+  on.exit(graphics::par(old.par))
+
+  rsd <- result$mod.fit$fitted.values - result$data.matrix$Y
+  ylims <- max(abs(rsd))
+
+  if(graph==0){
+    graphics::par(mfrow=c(1,2), mar=c(4.5,4,3,1))
+  }
+  if(graph !=2){
+    plot(result$mod.fit$fitted.values, rsd, ylab="Residuals",
+         xlab="Fitted Y values", main="Residuals vs. Fitted",
+         ylim=c(-ylims, ylims))
+    graphics::abline(h = 0, lty = 3, col = "gray")
+  }
+  if(graph != 1){
+    stats::qqnorm(rsd, ylab="", ylim=c(-ylims, ylims), xlab="Theoretical Quantiles")
+    stats::qqline(rsd, lty = 3, col = "gray50")
+  }
+}
+

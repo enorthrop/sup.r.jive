@@ -7,7 +7,9 @@
 plotHeatmap(x, ...)
 }
 \arguments{
-\item{x}{}
+\item{x}{TBD}
+
+\item{...}{Other arguments}
 }
 \value{
 

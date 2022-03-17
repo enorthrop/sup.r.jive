@@ -2,43 +2,16 @@
 % Please edit documentation in R/Visuals.R
 \name{plotHeatmap}
 \alias{plotHeatmap}
-\title{Heatmap of supervised JIVE output}
+\title{Plot Heatmap Generic Function}
 \usage{
-plotHeatmap(result, order_by = -1, ylab = "Y", xlab = NULL, ycex = 1)
+plotHeatmap(x, ...)
 }
 \arguments{
-\item{result}{an object of class sJIVE}
-
-\item{order_by}{specifies how to order the rows and columns
-of the heatmap. #If order_by=-1, orderings are determined
-by the outcome. If order_by=0, orderings are determined
-by joint structure.  Otherwise, order_by gives the number
-of the individual structure dataset to determine the ordering.
-In all cases orderings are determined by complete-linkage
-hierarchical clustering of Euclidean distances.}
-
-\item{ylab}{a label for the outcome dataset}
-
-\item{xlab}{a vector with labels for each X dataset}
-
-\item{ycex}{a scalar to change the font size of the labels
-
- @details This function takes a fitted sJIVE, sesJIVE, or JIVE.pred
- model and plots the results using heatplots. Ensure your plotting window
- is sufficiently large prior to running this function to get the
- best results visually.}
+\item{x}{}
 }
 \value{
-A heatmap
+
 }
 \description{
-Display a heatmap of JIVE.pred, sJIVE, or sesJIVE model
-}
-\examples{
-data(SimData.norm)
-fit <- sJIVE(X=SimData.norm$X,Y=SimData.norm$Y,
-                  rankJ=1,rankA=c(1,1),eta=0.5)
-plotHeatmap(fit,  ylab="outcome",
-        xlab=c("Metabolomic", "Proteomic"), ycex=0.9)
-
+Plot Heatmap Generic Function
 }

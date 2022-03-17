@@ -7,7 +7,7 @@ test_that("sJIVE works", {
                      rankJ=1,rankA=c(1,1),eta=0.5)
   train.mse <- round(sum((SimData.norm$Y-train.fit$fittedY)^2),3)
 
-  expect_equal(train.mse, 3.483)
+  expect_equal(train.mse, 11.132)
 })
 
 
@@ -18,7 +18,7 @@ test_that("sJIVE.predict works", {
                      rankJ=1,rankA=c(1,1),eta=0.5)
 
   n <- 300
-  p <- 30 #Don't change p unless SimData Changes
+  p <- 40 #Don't change p unless SimData Changes
   withr::with_seed( 1,
   test.x <- list(matrix(rnorm(n*p), ncol=n),
                  matrix(rnorm(n*p), ncol=n))
@@ -28,5 +28,5 @@ test_that("sJIVE.predict works", {
   )
   test.fit <- predict(train.fit, newdata = test.x)
   test.mse <- round(sum((test.y-test.fit$Ypred)^2),3)
-  expect_equal(test.mse, 361.068)
+  expect_equal(test.mse, 365.342)
 })

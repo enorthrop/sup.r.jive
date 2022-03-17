@@ -3,7 +3,7 @@
 ############ sJIVE dataset
 ##Function
 sim.data <- function(k, p, n, rankJ, rankI, prop.causal=NULL,
-                     eigval.J=1, eigval.I=1, X.error=.1, Y.error=0.1, n.pred=NULL){
+                     eigval.J=1, eigval.I=1, X.error=.1, Y.error=0.1){
   ######################################################################
   #k=integer, number of datasets
   #p=vector length k, number of predictors for each of the k datasets
@@ -19,12 +19,7 @@ sim.data <- function(k, p, n, rankJ, rankI, prop.causal=NULL,
 
   if(is.null(prop.causal)){prop.causal <- rep(1,k)}
   #Simulate U and theta 1
-  if(is.null(n.pred)){
-    U <- matrix(runif(rankJ, min=0.5, max=1), ncol=rankJ) #theta1 signal
-  }else{
-    t1 <-runif(n.pred, min=0.5, max=1)
-    U <- matrix(c(t1, rep(0,rankJ-n.pred)), ncol=rankJ) #theta1 signal
-  }
+  U <- matrix(runif(rankJ, min=0.5, max=1), ncol=rankJ) #theta1 signal
   for(i in k:1){
     if(prop.causal[i]==1){
       t1 <- matrix(runif(p[i]*rankJ, min=0.5, max=1), ncol=rankJ) #U_i signal
@@ -60,12 +55,7 @@ sim.data <- function(k, p, n, rankJ, rankI, prop.causal=NULL,
       t1 <- matrix(runif(pc*rankI[i], min=0.5, max=1), ncol=rankI[i]) #W_i signal
       t2 <- matrix(rep(0,(p[i]-pc)*rankI[i]), ncol = rankI[i])
     }
-    if(is.null(n.pred)){
-      t3 <- matrix(runif(rankI[i], min=0.5, max=1), ncol=rankI[i]) #theta2_i signal
-    }else{
-      tt1 <-runif(n.pred, min=0.5, max=1)
-      t3 <- matrix(c(tt1, rep(0,rankI[i]-n.pred)), ncol=rankI[i]) #theta2_i signal
-    }
+    t3 <- matrix(runif(rankI[i], min=0.5, max=1), ncol=rankI[i]) #theta2_i signal
     temp <- qr(rbind(t1, t2, t3))[[1]]
     if(as.vector(temp)[1] < 0){temp <- -1 * temp} #Added 3/30/20 for identifiability
     W[[i]] <- as.matrix(temp[-nrow(temp),])
@@ -179,11 +169,24 @@ sim.data <- function(k, p, n, rankJ, rankI, prop.causal=NULL,
               errorY=err, error.unscl = err.old, Ymse=Ymse,
               Yexact=Ysig, eigenXsignal=eigXsig, eigenXerror=eigXerr))
 }
+optim.error <- function(X.tilde, U, theta1, Sj, W, Si, theta2, k, obs){
+  WS <- NULL; thetaS <- 0
+  for(i in 1:k){
+    temp <- W[[i]] %*% Si[[i]]
+    WS <- rbind(WS, temp)
+    thetaS <- thetaS + theta2[[i]] %*% Si[[i]]
+  }
+  WS.new <- rbind(WS, thetaS)
+  error  <- norm(X.tilde - rbind(U, theta1) %*% Sj - WS.new, type = "F")^2
+  return(error)
+}
 
-set.seed(021722)
-dat<- sim.data(k=2, p=c(30,30), n=20,
-                         rankJ=1, rankI=c(1,1),
-                         X.error=0.9, Y.error = 0.1)
+set.seed(031122)
+dat <- sim.data(k=2, p=c(40,40),n=30,
+                         rankJ = 1, rankI=c(1,1),
+                         X.error = c(0.9,0.9), Y.error = 0.1)
+#fit <- sJIVE(X=dat$X, Y=dat$Y)
+
 SimData.norm <- list()
 SimData.norm$X <- dat$X
 SimData.norm$Y <- dat$Y

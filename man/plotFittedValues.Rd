@@ -2,9 +2,9 @@
 % Please edit documentation in R/Visuals.R
 \name{plotFittedValues}
 \alias{plotFittedValues}
-\title{Plott fitted values from supervised JIVE model}
+\title{Plot fitted values from supervised JIVE model}
 \usage{
-plotFittedValues(x)
+plotFittedValues(x, ...)
 }
 \arguments{
 \item{x}{TBD}

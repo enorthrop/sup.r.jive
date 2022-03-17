@@ -1,0 +1,114 @@
+---
+title: "JIVE.Predict Example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{my-vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette illustrates an example on how to use the `sup.r.jive` package to run Joint and Variation Explained (JIVE) predict. JIVE.predict was developed by Kaplan and Lock (2017) and is a two-step, multi-source supervised method that can identify joint and individual components among the data sources, and use those components to build a prediction model. The joint and individual components are calculated by JIVE, which was proposed by Lock et al. (2013). 
+
+Here, we avoid methodological details and focus on the functionality of the `sup.r.jive` package.
+
+## Loading the data
+
+If you haven't used this package before, you'll have to install it first. You can install the development version of `sup.r.jive` from [GitHub](https://github.com/) with:
+
+```{r}
+# install.packages("devtools")
+#devtools::install_github("enorthrop/sup.r.jive")
+library(sup.r.jive)
+```
+
+
+For this example, we will use the `SimData.norm` data file contained in this package. After loading the data, we can see that it contains 2 data matrices saved as a list (`X`) and contains a continuous outcome vector (`Y`). Note that both data matrices have 40 rows or predictors, and have 30 columns or observations. The number of rows need not match across sources, but each source and the outcome must be collected on the same group of individuals.
+
+```{r}
+data("SimData.norm")
+str(SimData.norm)
+
+```
+
+## Running JIVE.predict
+
+Let's say that we want to uncover the joint structure between the data sources and each source's individual structure. Using those structures, we also want to predict the outcome `Y`. We can calculate this by running the `JIVE.pred` function. By default, the ranks of the joint and individual components will be calculated by the permutation approach, and a linear prediction model will be constructed. When finding the joint and individual components, JIVE requires a centered and scaled dataset. The centering and scaling can be done internally in the function (center=T and scale=T) if selected.
+
+
+```{r}
+fit <- JIVE.pred(X=SimData.norm$X, Y=SimData.norm$Y, rankJ=1, rankI = c(1,1),
+                 family="gaussian")
+
+```
+
+The output shows the final ranks for the joint and individual components as well as the tuning parameter and the number of iterations it took to reach convergence. By printing the model output, we can find similar information.
+
+```{r}
+fit
+```
+Or if we want a more detailed summary, we can do the following:
+
+```{r}
+summary(fit)
+```
+
+If we want to make predictions, we can do so using the predict function. Note that the Y predictions are for the centered and scaled outcome. `fit$data` contains the centered and scaled data, which should be used when assessing prediction accuracy of the method.
+
+
+```{r}
+
+fit.pred <- predict(fit, newdata = SimData.norm$X)
+#MSE
+sum((fit$data$Y-fit.pred$Ypred)^2)/length(fit$data$Y)
+```
+
+
+## Visualization and interpretation
+
+The `sup.r.jive` package contains 3 visualization tools that help display the results. Each of the 3 functions will work for an object of class JIVE.pred, sJIVE, or sesJIVE as its input, but in this vignette, we will briefly discuss each function using the fitted JIVE.predict model from above.
+
+### plotHeatmap()
+
+This function displays a heatmap of the contribution of the joint and individual components. Note that there is not a heatmap for the residual error of the fitted model. 
+
+```{r}
+plotHeatmap(fit) 
+```
+
+The `order_by` option in this function allows the user to order the column by the original data (default), the joint component (`order_by=1`), or the i'th individual component (`order_by=i`).
+
+```{r}
+plotHeatmap(fit, order_by = 0, ylab="Outcome", xlab=c("Data1", "Data2"))
+```
+
+### plotVarExplained()
+
+To Be Continued
+
+```{r}
+plotVarExplained(fit)
+
+```
+
+## References
+
+Kaplan, A, and EF Lock. 2017. "Prediction With Dimension Reduction of Multiple Molecular Data Sources for Patient  Survival." \textit{Cancer Informatics} 16:1-11.
+
+Lock, EF, KA Hoadley, JS Marron, and AB Nobel. 2013. “Joint and Individual Variation Explained (JIVE) for Integrated Analysis of Multiple Data Types.” \textit{The Annals of Applied Statistics} 7 (1): 523–42.
+
+Sandri, BJ, A Kaplan, SW Hodgson, M Peterson, S Avdulov, L Higgins, T Markowski, P Yang, AH Limper, TJ Griffin, P Bitterman, EF Lock, and CH Wendt. 2018. "Multi-omic molecular profiling of lung cancer in COPD." \textit{The European Respiratory Journal} 52(1).
+
+Yihong Z, A Klein, FX Castellanos, and MP Milham. 2019."Brain age prediction: Cortical and subcortical shape covariation in the developing human brain." \textit{NeuroImage} 202:116149.
+
+
+
+
+
+

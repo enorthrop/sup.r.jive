@@ -34,9 +34,9 @@ If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.}
 \item{rankI}{A vector specifying the individual ranks of the data.
 If \code{rankA=NULL}, ranks will be determined by the \code{method} option.}
 
-\item{center}{A boolean indicating whether or not the data should be centered. Default is FALSE.}
+\item{center}{A boolean indicating whether or not X should be centered. Default is FALSE.}
 
-\item{scale}{A boolean indicating whether or not the data should be scaled. Default is FALSE.}
+\item{scale}{A boolean indicating whether or not X should be scaled. Default is FALSE.}
 
 \item{orthIndiv}{A boolean indicating whether or not the algorithm should enforce
 orthogonality between individual structures. Default is FALSE.}

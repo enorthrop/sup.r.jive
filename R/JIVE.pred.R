@@ -13,8 +13,8 @@
 #' If \code{rankA=NULL}, ranks will be determined by the \code{method} option.
 #' @param family A string specifying the type of prediction model to fit. Options
 #' are "gaussian", "binomial", and "poisson". Model is fit using GLM.
-#' @param center A boolean indicating whether or not the data should be centered. Default is FALSE.
-#' @param scale A boolean indicating whether or not the data should be scaled. Default is FALSE.
+#' @param center A boolean indicating whether or not X should be centered. Default is FALSE.
+#' @param scale A boolean indicating whether or not X should be scaled. Default is FALSE.
 #' @param orthIndiv A boolean indicating whether or not the algorithm should enforce
 #' orthogonality between individual structures. Default is FALSE.
 #' @param method A string with the method to use for rank selections.
@@ -89,11 +89,14 @@ JIVE.pred <- function(X, Y, family="gaussian",
     stop(paste0("Model ", family, " doesn't exist"))
   }
 
+  result <- list(jive.fit=fit,
+                 mod.fit=mod.fit,
+                 data.matrix=jive.mat,
+                 family=family)
+  class(result) <- "JIVEpred"
 
-  return(list(jive.fit=fit,
-              mod.fit=mod.fit,
-              data.matrix=jive.mat,
-              family=family))
+
+  return(result)
 
 }
 
@@ -113,8 +116,8 @@ JIVE.pred <- function(X, Y, family="gaussian",
 #' train.y <- rnorm(20)
 #' test.x <- list(matrix(rnorm(600), ncol=40),matrix(rnorm(400), ncol=40))
 #' train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankI=c(1,1))
-#' test.fit <- JIVE.pred.predict(train.fit, test.x)
-JIVE.pred.predict <- function(JIVE.pred.fit, newdata){
+#' test.fit <- predict(train.fit, test.x)
+predict.JIVEpred <- function(JIVE.pred.fit, newdata){
   k <- length(newdata)
   jive.fit <- JIVE.pred.fit$jive.fit
   mod.fit <- JIVE.pred.fit$mod.fit
@@ -137,4 +140,129 @@ JIVE.pred.predict <- function(JIVE.pred.fit, newdata){
               joint.scores=fit_test2$joint.scores,
               indiv.scores = fit_test2$indiv.scores,
               error = fit_test2$errors))
+}
+
+
+
+#' Print.JIVEpred
+#'
+#' @param obj a fitted JIVE.predict model
+#'
+#' @return
+#' @export
+print.JIVEpred <- function(obj) {
+  k <- length(obj$jive.fit$data)
+  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
+                          Rank = c(obj$jive.fit$rankJ, obj$jive.fit$rankA))
+
+   cat("Ranks: \n")
+    print(tbl_ranks)
+   cat("\n Model Fit: \n")
+   print(obj$mod.fit)
+}
+
+
+#' Summary JIVE.Predict
+#'
+#' Display summary data of an JIVE.predict model
+#'
+#' @param object A fitted JIVE.predict model
+#'
+#' @details This function gives summary results from
+#' JIVE.predict. Amount of variance explained
+#' is expressed in terms of the standardized Frobenious
+#' norm. Partial R-squared values are calculated for the
+#' joint and individual components. If rank=1, a z-statistic
+#' is calculated to determine the p-value. If rank>1, an F-statistic
+#' is calculated.
+#'
+#' @return Summary measures
+#' @export
+summary.JIVEpred <- function(object){
+  k <- length(object$jive.fit$data)
+  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
+                          Rank = c(object$jive.fit$rankJ, object$jive.fit$rankA))
+
+
+  #cat("\n $Variance \n")
+  var.table <- NULL
+  for (i in 1:k) {
+    j <- object$jive.fit$joint[[i]]
+    a <- object$jive.fit$individual[[i]]
+    ssj <- norm(j, type="f")^2
+    ssi <- norm(a, type="f")^2
+    sse <- norm(object$jive.fit$data[[i]] -j-a, type="f")^2
+    sst <- norm(object$jive.fit$data[[i]], type="f")^2
+    var.table <- cbind(var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+  }
+  r_j <- object$jive.fit$rankJ
+  j <- as.matrix(object$data.matrix[,c(2:(r_j+1))], ncol=r_j) %*% object$mod.fit$coefficients[c(2:(r_j+1))]
+  ThetaS <- as.matrix(object$data.matrix[,-c(1:(r_j+1))]) %*% object$mod.fit$coefficients[-c(1:(r_j+1))]
+  ssj <- norm(j, type="f")^2
+  ssi <- norm(ThetaS, type="f")^2
+  sse <- norm(as.matrix(object$data.matrix$Y-j-ThetaS), type="f")^2
+  sst <- norm(as.matrix(object$data.matrix$Y), type="f")^2
+  var.table <- cbind(c("Joint", "Indiv", "Error"),
+                     var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+  var.table <- as.data.frame(var.table)
+  names(var.table) <- c("Component", paste0("X", 1:k), "Y")
+
+  #cat("\n $pred.model \n")
+  j <- as.matrix(object$data.matrix[,c(2:(r_j+1))], ncol=r_j) %*% object$mod.fit$coefficients[c(2:(r_j+1))]
+  a <- list(); a2 <- 0
+  sse <- sum((object$data.matrix$Y - j)^2)
+  ssr <- sum((mean(object$data.matrix$Y) - j)^2)
+  ssnum <-  sum((mean(j) - j)^2)
+  coefs <- object$mod.fit$coefficients[2]
+  for(i in 1:k){
+    obs <- which(grepl(paste0("I",i),names(object$mod.fit$coefficients)))
+    a[[i]] <- as.matrix(object$data.matrix[,obs]) %*% object$mod.fit$coefficients[obs]
+    a2 <- a2 + a[[i]]
+    sse <- c(sse, sum((object$data.matrix$Y - a[[i]])^2))
+    ssr <- c(ssr, sum((mean(object$data.matrix$Y) - a[[i]])^2))
+    ssnum <- c(ssnum, sum((mean(a[[i]]) - a[[i]])^2))
+    coefs <- c(coefs, object$mod.fit$coefficients[obs[1]])
+  }
+
+  sse_full <- sum((object$data.matrix$Y - (j+a2))^2)
+  sse_partial <- sum((object$data.matrix$Y - a2)^2)
+  for(i in 1:k){
+    temp <- j
+    for(ii in 1:k){
+      if(i != ii){temp <- temp + a[[i]]}
+    }
+    sse_partial <- c(sse_partial, sum((object$data.matrix$Y - temp)^2))
+  }
+  r_squared <- (sse_partial - sse_full)/sse_partial
+  ranks <- c(object$jive.fit$rankJ, object$jive.fit$rankA)
+
+  b <- which(ranks>1)
+  n <- length(object$data.matrix$Y)
+  if(length(b)>0){
+    msr <- ssr[b] / (ranks[b]-1)
+    mse <- sse[b] / (n-ranks[b])
+    fstat <- msr/mse; pval <- NULL
+    for(j in 1:length(b)){
+      pval <- c(pval, 1-stats::pf(abs(fstat[j]), df1=ranks[b[j]]-1,
+                                  df2=n-ranks[b[j]], lower.tail = T) )
+    }}
+  bb <- which(ranks==1)
+  if(length(bb)>0){
+    se <- sqrt((1/(n-1) * sse[bb])  / ssnum[bb] )
+    z.stat <- coefs[bb]/se
+    pval2 <- 2*(1-stats::pnorm(abs(z.stat), lower.tail = T))
+  }
+  pvalfinal <- ranks*1
+  if(length(b)>0) pvalfinal[which(ranks>1)] <- pval
+  if(length(bb)>0) pvalfinal[which(ranks==1)] <- pval2
+
+  tbl <- data.frame(Component=c("Joint", paste0("Indiv", 1:k)),
+                    Rank = ranks,
+                    Partial_R2=r_squared,
+                    Pvalue=pvalfinal)
+
+  return(list(ranks=tbl_ranks,
+              variance=var.table,
+              pred.model=tbl,
+              Model=summary(object$mod.fit)))
 }

@@ -4,10 +4,10 @@
 \alias{plotVarExplained}
 \title{Variance Graph of supervised JIVE output}
 \usage{
-plotVarExplained(x)
+plotVarExplained(result, col = c("grey20", "grey43", "grey65"))
 }
 \arguments{
-\item{x}{TBD}
+\item{result}{a fitted JIVE.pred, sJIVE, or sesJIVE model}
 }
 \value{
 A set of barplots

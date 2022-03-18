@@ -4,16 +4,18 @@
 \alias{predict.sJIVE}
 \title{Prediction for sJIVE}
 \usage{
-\method{predict}{sJIVE}(sJIVE.fit, newdata, threshold = 0.001, max.iter = 2000)
+\method{predict}{sJIVE}(object, newdata, threshold = 0.001, max.iter = 2000, ...)
 }
 \arguments{
-\item{sJIVE.fit}{A fitted sJIVE model}
+\item{object}{A fitted sJIVE model}
 
 \item{newdata}{A list of matrices representing the new X dataset}
 
 \item{threshold}{The threshold}
 
 \item{max.iter}{The max number of iterations}
+
+\item{...}{further arguments passed to or from other methods}
 }
 \value{
 A list of stuff

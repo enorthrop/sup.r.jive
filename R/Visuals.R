@@ -5,12 +5,12 @@
 
 #' Plot Heatmap Generic Function
 #'
-#' @param x TBD
+#' @param result TBD
 #' @param ... Other arguments
 #'
 #' @return
 #' @export
-plotHeatmap <- function(x, ...) {
+plotHeatmap <- function(result, ...) {
   UseMethod("plotHeatmap")
 }
 
@@ -20,12 +20,12 @@ plotHeatmap <- function(x, ...) {
 #' Display a fitted versus actual graph given a
 #' JIVE.pred, sJIVE, or sesJIVE model
 #'
-#' @param x TBD
+#' @param result TBD
 #' @param ... Other arguments
 #'
 #' @return A diagnostic plot
 #' @export
-plotFittedValues <- function(x, ...){
+plotFittedValues <- function(result, ...){
   UseMethod("plotFittedValues")
 }
 
@@ -48,6 +48,7 @@ plotFittedValues <- function(x, ...){
 #' @param ylab a label for the outcome dataset
 #' @param xlab a vector with labels for each X dataset
 #' @param ycex a scalar to change the font size of the labels
+#' @param ... further arguments passed to or from other methods
 #'
 #'  @details This function takes a fitted sJIVE, sesJIVE, or JIVE.pred
 #'  model and plots the results using heatplots. Ensure your plotting window
@@ -66,7 +67,7 @@ plotFittedValues <- function(x, ...){
 #'         xlab=c("Metabolomic", "Proteomic"), ycex=0.9)
 #'
 plotHeatmap.sJIVE <- function(result, order_by=-1,
-                        ylab="Y", xlab=NULL, ycex=1){
+                        ylab="Y", xlab=NULL, ycex=1, ...){
   #result is an object of class sJIVE_result
   #order_by specifies how to order the rows and columns
   #  of the heatmap. #If order_by=-1, orderings are determined
@@ -218,6 +219,7 @@ plotHeatmap.sJIVE <- function(result, order_by=-1,
 #' @param ylab a label for the outcome dataset
 #' @param xlab a vector with labels for each X dataset
 #' @param ycex a scalar to change the font size of the labels
+#' @param ... further arguments passed to or from other methods
 #'
 #'  @details This function takes a fitted JIVE.pred
 #'  model and plots the results using heatplots. Ensure your plotting window
@@ -236,7 +238,7 @@ plotHeatmap.sJIVE <- function(result, order_by=-1,
 #'         xlab=c("Metabolomic", "Proteomic"), ycex=0.9)
 #'
 plotHeatmap.JIVEpred <- function(result, order_by=-1,
-                              ylab="Y", xlab=NULL, ycex=1){
+                              ylab="Y", xlab=NULL, ycex=1, ...){
   #result is an object of class sJIVE_result
   #order_by specifies how to order the rows and columns
   #  of the heatmap. #If order_by=-1, orderings are determined
@@ -426,10 +428,11 @@ plotVarExplained <- function(result, col=c("grey20", "grey43", "grey65")){
 #'
 #' @param result A fitted sJIVE model
 #' @param graph A value: 0, 1, or 2.
+#' @param ... further arguments passed to or from other methods
 #'
 #' @return
 #' @export
-plotFittedValues.sJIVE <- function(result, graph=0){
+plotFittedValues.sJIVE <- function(result, graph=0, ...){
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
   on.exit(graphics::par(old.par))
 
@@ -457,10 +460,11 @@ plotFittedValues.sJIVE <- function(result, graph=0){
 #'
 #' @param result A fitted JIVEpred model
 #' @param graph A value: 0, 1, or 2
+#' @param ... further arguments passed to or from other methods
 #'
 #' @return
 #' @export
-plotFittedValues.JIVEpred <- function(result, graph=0){
+plotFittedValues.JIVEpred <- function(result, graph=0, ...){
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
   on.exit(graphics::par(old.par))
 

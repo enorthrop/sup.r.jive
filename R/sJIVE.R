@@ -156,10 +156,11 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
 
 #' Prediction for sJIVE
 #'
-#' @param sJIVE.fit A fitted sJIVE model
+#' @param object A fitted sJIVE model
 #' @param newdata A list of matrices representing the new X dataset
 #' @param threshold The threshold
 #' @param max.iter The max number of iterations
+#' @param ... further arguments passed to or from other methods
 #'
 #' @return A list of stuff
 #' @export
@@ -170,9 +171,9 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
 #' test.x <- list(matrix(rnorm(600), ncol=40),matrix(rnorm(400), ncol=40))
 #' train.fit <- sJIVE(X=train.x,Y=train.y,rankJ=1,rankA=c(1,1),eta=0.5)
 #' test.fit <- predict(train.fit, newdata = test.x)
-predict.sJIVE <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
+predict.sJIVE <- function(object, newdata, threshold = 0.001, max.iter=2000, ...){
 
-  if(sJIVE.fit$rankJ==0 & sum(sJIVE.fit$rankA)==0){
+  if(object$rankJ==0 & sum(object$rankA)==0){
     return(list(Ypred = 0,
                 Sj = 0,
                 Si = 0,
@@ -183,8 +184,8 @@ predict.sJIVE <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
   #Initialize values
   k <- length(newdata)
   n <- ncol(newdata[[1]])
-  W <- sJIVE.fit$W_I
-  U <- sJIVE.fit$U_I
+  W <- object$W_I
+  U <- object$U_I
   rankJ <- ncol(as.matrix(U[[1]]))
   Sj <- matrix(rep(0,rankJ*n), ncol = n)
 
@@ -206,11 +207,11 @@ predict.sJIVE <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
   U.mat <- NULL; pred.J<-NULL
   for(i in 1:k){
     U.mat <- rbind(U.mat, as.matrix(U[[i]]))}
-  if(sJIVE.fit$rankJ>0){
+  if(object$rankJ>0){
     pred.J= solve(t(U.mat)%*%U.mat)%*%t(U.mat)}
   pred.A <- list()
   for(i in 1:k){
-    if(sJIVE.fit$rankA[i]>0)
+    if(object$rankA[i]>0)
       pred.A[[i]] <- solve(t(W[[i]])%*%W[[i]])%*%t(W[[i]])
   }
 
@@ -221,12 +222,12 @@ predict.sJIVE <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
     for(i in 1:k){
       A <- rbind(A, as.matrix(W[[i]]) %*% as.matrix(Si[[i]]))
     }
-    if(sJIVE.fit$rankJ>0){
+    if(object$rankJ>0){
       Sj <-pred.J %*% (X.tilde - A)}
 
     #Update Si
     for(i in 1:k){
-      if(sJIVE.fit$rankA[i]>0)
+      if(object$rankA[i]>0)
         Si[[i]] <- pred.A[[i]] %*% (newdata[[i]] - U[[i]] %*% Sj)
     }
 
@@ -241,9 +242,9 @@ predict.sJIVE <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
     }
   }
 
-  Ypred <- sJIVE.fit$theta1 %*% Sj
+  Ypred <- object$theta1 %*% Sj
   for(i in 1:k){
-    Ypred <- Ypred + sJIVE.fit$theta2[[i]] %*% Si[[i]]
+    Ypred <- Ypred + object$theta2[[i]] %*% Si[[i]]
   }
 
   return(list(Ypred = Ypred,
@@ -256,29 +257,30 @@ predict.sJIVE <- function(sJIVE.fit, newdata, threshold = 0.001, max.iter=2000){
 
 #' Print.sJIVE
 #'
-#' @param obj a fitted sJIVE model
+#' @param x a fitted sJIVE model
+#' @param ... further arguments passed to or from other methods
 #'
 #' @return
 #' @export
-print.sJIVE <- function(obj) {
-  k <- length(obj$data$X)
+print.sJIVE <- function(x, ...) {
+  k <- length(x$data$X)
   tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
-                          Rank = c(obj$rankJ, obj$rankA))
+                          Rank = c(x$rankJ, x$rankA))
   tbl_coef <- NULL
-  if(obj$rankJ>0){
-  for(i in 1:obj$rankJ){
-    new.col=c(paste0("Joint_",i), obj$theta1[i])
+  if(x$rankJ>0){
+  for(i in 1:x$rankJ){
+    new.col=c(paste0("Joint_",i), x$theta1[i])
     tbl_coef <- cbind(tbl_coef, new.col)
   }}
   for(j in 1:k){
-    if(obj$rankA[j]>0){
-      for(i in 1:obj$rankA[j]){
-        new.col=c(paste0("Individual",j,"_", i), obj$theta2[[j]][i])
+    if(x$rankA[j]>0){
+      for(i in 1:x$rankA[j]){
+        new.col=c(paste0("Individual",j,"_", i), x$theta2[[j]][i])
         tbl_coef <- cbind(tbl_coef, new.col)
       }}
   }
 
-  cat("eta:", obj$eta, "\n")
+  cat("eta:", x$eta, "\n")
   cat("Ranks: \n")
   for(i in 1:nrow(tbl_ranks)){
     cat("   ",  unlist(tbl_ranks[i,]), "\n")
@@ -295,6 +297,7 @@ print.sJIVE <- function(obj) {
 #' Display summary data of an sJIVE model
 #'
 #' @param object A fitted sJIVE model
+#' @param ... further arguments passed to or from other methods
 #'
 #' @details This function gives summary results from
 #' sJIVE. Amount of variance explained
@@ -306,7 +309,7 @@ print.sJIVE <- function(obj) {
 #'
 #' @return Summary measures
 #' @export
-summary.sJIVE <- function(object){
+summary.sJIVE <- function(object, ...){
   k <- length(object$data$X)
   tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
                           Rank = c(object$rankJ, object$rankA))

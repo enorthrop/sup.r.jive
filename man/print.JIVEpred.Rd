@@ -4,10 +4,12 @@
 \alias{print.JIVEpred}
 \title{Print.JIVEpred}
 \usage{
-\method{print}{JIVEpred}(obj)
+\method{print}{JIVEpred}(x, ...)
 }
 \arguments{
-\item{obj}{a fitted JIVE.predict model}
+\item{x}{a fitted JIVE.predict model}
+
+\item{...}{further arguments passed to or from other methods}
 }
 \value{
 

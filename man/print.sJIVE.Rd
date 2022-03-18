@@ -4,10 +4,12 @@
 \alias{print.sJIVE}
 \title{Print.sJIVE}
 \usage{
-\method{print}{sJIVE}(obj)
+\method{print}{sJIVE}(x, ...)
 }
 \arguments{
-\item{obj}{a fitted sJIVE model}
+\item{x}{a fitted sJIVE model}
+
+\item{...}{further arguments passed to or from other methods}
 }
 \value{
 

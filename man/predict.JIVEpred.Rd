@@ -4,13 +4,15 @@
 \alias{predict.JIVEpred}
 \title{Prediction with JIVE.predict model}
 \usage{
-\method{predict}{JIVEpred}(JIVE.pred.fit, newdata)
+\method{predict}{JIVEpred}(object, newdata, ...)
 }
 \arguments{
-\item{JIVE.pred.fit}{Fitted JIVE.predict model}
+\item{object}{Fitted JIVE.predict model}
 
 \item{newdata}{A list of two or more linked data matrices. Each matrix must
 have the same number of columns which is assumed to be common.}
+
+\item{...}{further arguments passed to or from other methods}
 }
 \value{
 Predictions for Y

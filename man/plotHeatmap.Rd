@@ -4,10 +4,10 @@
 \alias{plotHeatmap}
 \title{Plot Heatmap Generic Function}
 \usage{
-plotHeatmap(x, ...)
+plotHeatmap(result, ...)
 }
 \arguments{
-\item{x}{TBD}
+\item{result}{TBD}
 
 \item{...}{Other arguments}
 }

@@ -4,10 +4,12 @@
 \alias{summary.JIVEpred}
 \title{Summary JIVE.Predict}
 \usage{
-\method{summary}{JIVEpred}(object)
+\method{summary}{JIVEpred}(object, ...)
 }
 \arguments{
 \item{object}{A fitted JIVE.predict model}
+
+\item{...}{further arguments passed to or from other methods}
 }
 \value{
 Summary measures

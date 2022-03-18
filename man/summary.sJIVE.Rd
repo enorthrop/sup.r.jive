@@ -4,10 +4,12 @@
 \alias{summary.sJIVE}
 \title{Summary.sJIVE}
 \usage{
-\method{summary}{sJIVE}(object)
+\method{summary}{sJIVE}(object, ...)
 }
 \arguments{
 \item{object}{A fitted sJIVE model}
+
+\item{...}{further arguments passed to or from other methods}
 }
 \value{
 Summary measures

@@ -85,20 +85,25 @@ plotHeatmap(fit, order_by = 0, ylab="Outcome", xlab=c("Data1", "Data2"))
 
 ### plotVarExplained()
 
-To Be Continued
+This function creates a series of barplots to display the percent of variance explained by the joint and individual components. The `col` option allows you to choose the color palette in the graphs. The values graphed in the barplots can be found by the `\$variance` output from the `summary()` function.
 
 ```{r}
-plotVarExplained(fit)
+plotVarExplained(fit, col=c("grey20", "grey43", "grey65"))
 
 ```
 
 
 ### plotFittedValues()
 
+This function displays two diagnostic plots for the fitted $Y$ values. The first plot compares the residuals to the fitted values, and the second plot is a Q-Q plot to look at the quantiles.
+
+```{r}
+plotFittedValues(fit)
+
+```
 
 
 ## References
-
 
 Palzer, EF, C Wendt, R Bowler, CP Hersh, SE Safo, and EF Lock. 2021. "sJIVE: Supervised Joint and Individual Variation Explained." Pre-print on arXiv.
 

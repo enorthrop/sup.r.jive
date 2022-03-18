@@ -4,10 +4,10 @@
 \alias{plotFittedValues}
 \title{Plot fitted values from supervised JIVE model}
 \usage{
-plotFittedValues(x, ...)
+plotFittedValues(result, ...)
 }
 \arguments{
-\item{x}{TBD}
+\item{result}{TBD}
 
 \item{...}{Other arguments}
 }

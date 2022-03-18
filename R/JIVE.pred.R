@@ -104,9 +104,10 @@ JIVE.pred <- function(X, Y, family="gaussian",
 
 #' Prediction with JIVE.predict model
 #'
-#' @param JIVE.pred.fit Fitted JIVE.predict model
+#' @param object Fitted JIVE.predict model
 #' @param newdata A list of two or more linked data matrices. Each matrix must
 #' have the same number of columns which is assumed to be common.
+#' @param ... further arguments passed to or from other methods
 #'
 #' @return Predictions for Y
 #' @export
@@ -117,10 +118,10 @@ JIVE.pred <- function(X, Y, family="gaussian",
 #' test.x <- list(matrix(rnorm(600), ncol=40),matrix(rnorm(400), ncol=40))
 #' train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankI=c(1,1))
 #' test.fit <- predict(train.fit, test.x)
-predict.JIVEpred <- function(JIVE.pred.fit, newdata){
+predict.JIVEpred <- function(object, newdata, ...){
   k <- length(newdata)
-  jive.fit <- JIVE.pred.fit$jive.fit
-  mod.fit <- JIVE.pred.fit$mod.fit
+  jive.fit <- object$jive.fit
+  mod.fit <- object$mod.fit
   fit_test2 <- r.jive::jive.predict(newdata, jive.fit)
   jive.mat <- cbind(matrix(rep(0, ncol(newdata[[1]])), ncol=1),
                     t(as.matrix(fit_test2$joint.scores)))
@@ -128,9 +129,9 @@ predict.JIVEpred <- function(JIVE.pred.fit, newdata){
     jive.mat <- cbind(jive.mat, t(as.matrix(fit_test2$indiv.scores[[i]])))
   }
   jive.mat <- as.data.frame(jive.mat)
-  names(jive.mat) <-  names(JIVE.pred.fit$data.matrix)
+  names(jive.mat) <-  names(object$data.matrix)
   y.pred <- stats::predict(mod.fit, newdata = jive.mat, type = "response")
-  if(JIVE.pred.fit$family != "gaussian"){
+  if(object$family != "gaussian"){
     y.pred2 <- round(y.pred)
   }else{y.pred2 <- y.pred}
 
@@ -146,19 +147,20 @@ predict.JIVEpred <- function(JIVE.pred.fit, newdata){
 
 #' Print.JIVEpred
 #'
-#' @param obj a fitted JIVE.predict model
+#' @param x a fitted JIVE.predict model
+#' @param ... further arguments passed to or from other methods
 #'
 #' @return
 #' @export
-print.JIVEpred <- function(obj) {
-  k <- length(obj$jive.fit$data)
+print.JIVEpred <- function(x, ...) {
+  k <- length(x$jive.fit$data)
   tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
-                          Rank = c(obj$jive.fit$rankJ, obj$jive.fit$rankA))
+                          Rank = c(x$jive.fit$rankJ, x$jive.fit$rankA))
 
    cat("Ranks: \n")
     print(tbl_ranks)
    cat("\n Model Fit: \n")
-   print(obj$mod.fit)
+   print(x$mod.fit)
 }
 
 
@@ -167,6 +169,7 @@ print.JIVEpred <- function(obj) {
 #' Display summary data of an JIVE.predict model
 #'
 #' @param object A fitted JIVE.predict model
+#' @param ... further arguments passed to or from other methods
 #'
 #' @details This function gives summary results from
 #' JIVE.predict. Amount of variance explained
@@ -178,7 +181,7 @@ print.JIVEpred <- function(obj) {
 #'
 #' @return Summary measures
 #' @export
-summary.JIVEpred <- function(object){
+summary.JIVEpred <- function(object, ...){
   k <- length(object$jive.fit$data)
   tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
                           Rank = c(object$jive.fit$rankJ, object$jive.fit$rankA))

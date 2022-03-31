@@ -22,6 +22,8 @@ Imports:
     stats,
     r.jive,
     withr,
+    doParallel, 
+    foreach,
     gplots
 VignetteBuilder: knitr
 Depends: 

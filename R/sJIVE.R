@@ -31,6 +31,8 @@
 #' data should be centered and scaled.
 #' @param reduce.dim A boolean indicating whether or not dimension
 #' reduction should be used to increase computation efficiency
+#' @param numCores An integer specifying the number of cores to use when
+#' estimating eta.
 #'
 #' @details The rank of the joint and individual components as well as
 #' the weight between the data and the outcome can be pre-specified
@@ -51,7 +53,7 @@
 #' }
 sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99), max.iter=1000,
                   threshold = 0.001,  method="permute",
-                  center.scale=TRUE, reduce.dim = TRUE){
+                  center.scale=TRUE, reduce.dim = TRUE, numCores=1){
   origX <- X
   origY <- Y
   k <- length(X)
@@ -99,42 +101,16 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
 
     cat("Choosing Tuning Parameter: eta \n")
     err.test <- NA
-    for(e in e.vec){
-      err.fold <- NA
-      for(i in 1:5){
-        #Get train/test sets
-        sub.train.x <- sub.test.x <- list()
-        sub.train.y <- Y[-fold[[i]]]
-        sub.test.y <- Y[fold[[i]]]
-        for(j in 1:length(X)){
-          sub.train.x[[j]] <- X[[j]][,-fold[[i]]]
-          sub.test.x[[j]] <- X[[j]][,fold[[i]]]
-        }
-        temp.mat <- rbind(e * sub.train.x[[1]],
-                          e * sub.train.x[[2]],
-                          (1-e) * sub.train.y)
-        temp.norm <- norm(temp.mat, type="F")
-        fit1 <- sJIVE.converge(sub.train.x, sub.train.y, max.iter = max.iter,
-                               rankJ = rankJ, rankA = rankA, eta = e,
-                               show.message=F, center.scale=center.scale,
-                               reduce.dim=reduce.dim, threshold = temp.norm/50000)
-        #Record Error for fold
-        fit_test1 <- stats::predict(fit1, sub.test.x)
-        if(sum(is.na(fit_test1$Ypred))==0){
-          fit.mse <- sum((fit_test1$Ypred - sub.test.y)^2)/length(sub.test.y)
-          err.fold <- c(err.fold, fit.mse)
-        }else{
-          err.fold <- c(err.fold, NA)
-        }
-      }
-
-      #Record Test Error (using validation set)
-      fit.mse <- mean(err.fold, na.rm = T)
-      err.test <- c(err.test, fit.mse)
-      if(min(err.test, na.rm = T) == fit.mse){
-        best.eta <- e
-      }
+    doParallel::registerDoParallel(cores=numCores)
+    test.best <- foreach::foreach(e=e.vec, .combine=rbind) %dopar% {
+      sJIVE.eta(e=e, Y2=Y, X2=X, fold2=fold, max.iter2=max.iter,
+                rankJ2=rankJ, rankA2=rankA,
+                center.scale2 = center.scale,
+                reduce.dim2=reduce.dim)
     }
+    doParallel::registerDoParallel(cores=1)
+    best.eta <- test.best[which(test.best[,2] == min(test.best[,2], na.rm=T)),1]
+    best.eta <- best.eta[1]
     cat(paste0("Using eta= ", best.eta, "\n"))
     test.best <- sJIVE.converge(X, Y, max.iter = max.iter,
                                 rankJ = rankJ, rankA = rankA, eta = best.eta,
@@ -818,4 +794,39 @@ sJIVE.pred.err <- function(X.tilde, U, Sj, W, Si, k){
   return(error)
 }
 
+sJIVE.eta <- function(e, Y2=Y, X2=X, fold2=fold, max.iter2=max.iter,
+                      rankJ2=rankJ, rankA2=rankA,
+                      center.scale2=center.scale,
+                      reduce.dim2=reduce.dim){
+    err.fold <- NA
+    for(i in 1:5){
+      #Get train/test sets
+      sub.train.x <- sub.test.x <- list()
+      sub.train.y <- Y2[-fold2[[i]]]
+      sub.test.y <- Y2[fold2[[i]]]
+      for(j in 1:length(X2)){
+        sub.train.x[[j]] <- X2[[j]][,-fold2[[i]]]
+        sub.test.x[[j]] <- X2[[j]][,fold2[[i]]]
+      }
+      temp.mat <- rbind(e * sub.train.x[[1]],
+                        e * sub.train.x[[2]],
+                        (1-e) * sub.train.y)
+      temp.norm <- norm(temp.mat, type="F")
+      fit1 <- sJIVE.converge(sub.train.x, sub.train.y, max.iter = max.iter2,
+                             rankJ = rankJ2, rankA = rankA2, eta = e,
+                             show.message=F, center.scale=center.scale2,
+                             reduce.dim=reduce.dim2, threshold = temp.norm/50000)
+      #Record Error for fold
+      fit_test1 <- stats::predict(fit1, sub.test.x)
+      if(sum(is.na(fit_test1$Ypred))==0){
+        fit.mse <- sum((fit_test1$Ypred - sub.test.y)^2)/length(sub.test.y)
+        err.fold <- c(err.fold, fit.mse)
+      }else{
+        err.fold <- c(err.fold, NA)
+      }
+    }
 
+    #Record Test Error (using validation set)
+    fit.mse <- mean(err.fold, na.rm = T)
+    return(c(e, fit.mse))
+}

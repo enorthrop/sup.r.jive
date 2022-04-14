@@ -107,7 +107,9 @@ JIVE.pred <- function(X, Y, family="gaussian",
 #' @param object Fitted JIVE.predict model
 #' @param newdata A list of two or more linked data matrices. Each matrix must
 #' have the same number of columns which is assumed to be common.
-#' @param ... further arguments passed to or from other methods
+#' @param center A boolean indicating whether or not newdata needs to be centered.
+#' @param scale A boolean indicating whether or not newdata needs to be scaled.
+#' @param ... further arguments passed to or from other methods.
 #'
 #' @return Predictions for Y
 #' @export
@@ -118,7 +120,25 @@ JIVE.pred <- function(X, Y, family="gaussian",
 #' test.x <- list(matrix(rnorm(600), ncol=40),matrix(rnorm(400), ncol=40))
 #' train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankI=c(1,1))
 #' test.fit <- predict(train.fit, test.x)
-predict.JIVEpred <- function(object, newdata, ...){
+predict.JIVEpred <- function(object, newdata, center=F, scale=F, ...){
+
+  n <- c()
+  for (i in 1:length(newdata)) {
+    n[i] <- nrow(newdata[[i]]) * ncol(newdata[[i]])
+  }
+
+  for (i in 1:length(newdata)) {
+    if (center) {
+      centerValues <- apply(newdata[[i]], 1, mean, na.rm = T)
+      newdata[[i]] <- newdata[[i]] - matrix(rep(centerValues,
+                                          ncol(newdata[[i]])), nrow = nrow(newdata[[i]]))
+    }
+    if (scale) {
+      scaleValues <- norm(newdata[[i]], type = "f") * sqrt(sum(n))
+      newdata[[i]] <- newdata[[i]]/scaleValues
+    }
+  }
+
   k <- length(newdata)
   jive.fit <- object$jive.fit
   mod.fit <- object$mod.fit
@@ -186,7 +206,6 @@ summary.JIVEpred <- function(object, ...){
   tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
                           Rank = c(object$jive.fit$rankJ, object$jive.fit$rankA))
 
-
   #cat("\n $Variance \n")
   var.table <- NULL
   for (i in 1:k) {
@@ -203,13 +222,18 @@ summary.JIVEpred <- function(object, ...){
   ThetaS <- as.matrix(object$data.matrix[,-c(1:(r_j+1))]) %*% object$mod.fit$coefficients[-c(1:(r_j+1))]
   ssj <- norm(j, type="f")^2
   ssi <- norm(ThetaS, type="f")^2
-  sse <- norm(as.matrix(object$data.matrix$Y-j-ThetaS), type="f")^2
+  ypred <- j + ThetaS
+  sse <- norm(as.matrix(object$data.matrix$Y-ypred), type="f")^2
   sst <- norm(as.matrix(object$data.matrix$Y), type="f")^2
   var.table <- cbind(c("Joint", "Indiv", "Error"),
                      var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
   var.table <- as.data.frame(var.table)
   names(var.table) <- c("Component", paste0("X", 1:k), "Y")
+  if(object$family != "guassian"){
+    var.table <- var.table[,-ncol(var.table)]
+  }
 
+  if(object$family == "guassian"){
   #cat("\n $pred.model \n")
   j <- as.matrix(object$data.matrix[,c(2:(r_j+1))], ncol=r_j) %*% object$mod.fit$coefficients[c(2:(r_j+1))]
   a <- list(); a2 <- 0
@@ -263,6 +287,9 @@ summary.JIVEpred <- function(object, ...){
                     Rank = ranks,
                     Partial_R2=r_squared,
                     Pvalue=pvalfinal)
+  }else{
+    tbl <- stats::anova(object$mod.fit)
+  }
 
   return(list(ranks=tbl_ranks,
               variance=var.table,

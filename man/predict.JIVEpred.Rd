@@ -4,7 +4,7 @@
 \alias{predict.JIVEpred}
 \title{Prediction with JIVE.predict model}
 \usage{
-\method{predict}{JIVEpred}(object, newdata, ...)
+\method{predict}{JIVEpred}(object, newdata, center = F, scale = F, ...)
 }
 \arguments{
 \item{object}{Fitted JIVE.predict model}
@@ -12,7 +12,11 @@
 \item{newdata}{A list of two or more linked data matrices. Each matrix must
 have the same number of columns which is assumed to be common.}
 
-\item{...}{further arguments passed to or from other methods}
+\item{center}{A boolean indicating whether or not newdata needs to be centered.}
+
+\item{scale}{A boolean indicating whether or not newdata needs to be scaled.}
+
+\item{...}{further arguments passed to or from other methods.}
 }
 \value{
 Predictions for Y

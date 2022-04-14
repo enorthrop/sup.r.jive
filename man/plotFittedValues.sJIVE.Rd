@@ -4,12 +4,14 @@
 \alias{plotFittedValues.sJIVE}
 \title{Plot Fitted Values - sJIVE}
 \usage{
-\method{plotFittedValues}{sJIVE}(result, graph = 0)
+\method{plotFittedValues}{sJIVE}(result, graph = 0, ...)
 }
 \arguments{
 \item{result}{A fitted sJIVE model}
 
 \item{graph}{A value: 0, 1, or 2.}
+
+\item{...}{further arguments passed to or from other methods}
 }
 \value{
 

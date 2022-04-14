@@ -29,15 +29,15 @@ library(sup.r.jive)
 ```
 
 
-For this example, we will use the `SimData.norm` data file contained in this package. After loading the data, we can see that it contains 2 data matrices saved as a list (`X`) and contains a continuous outcome vector (`Y`). Note that both data matrices have 40 rows or predictors, and have 30 columns or observations. The number of rows need not match across sources, but each source and the outcome must be collected on the same group of individuals.
+For this example, we will use both the `SimData.norm` and `SimData.bin` data files contained in this package. After loading the data, we can see that `SimData.norm` contains 2 data matrices saved as a list (`X`) and contains a continuous outcome vector (`Y`). Note that both data matrices have 40 rows or predictors, and have 30 columns or observations. The number of rows need not match across sources, but each source and the outcome must be collected on the same group of individuals.
 
 ```{r}
 data("SimData.norm")
+data("SimData.bin")
 str(SimData.norm)
-
 ```
 
-## Running JIVE.predict
+## Running JIVE.predict with a Continuous Outcome
 
 Let's say that we want to uncover the joint structure between the data sources and each source's individual structure. Using those structures, we also want to predict the outcome `Y`. We can calculate this by running the `JIVE.pred` function. By default, the ranks of the joint and individual components will be calculated by the permutation approach, and a linear prediction model will be constructed. When finding the joint and individual components, JIVE requires a centered and scaled dataset. The centering and scaling can be done internally in the function (center=T and scale=T) if selected.
 
@@ -48,7 +48,7 @@ fit <- JIVE.pred(X=SimData.norm$X, Y=SimData.norm$Y, rankJ=1, rankI = c(1,1),
 
 ```
 
-The output shows the final ranks for the joint and individual components as well as the tuning parameter and the number of iterations it took to reach convergence. By printing the model output, we can find similar information.
+The output shows the final ranks for the joint and individual components as well as the number of iterations it took to reach convergence. By printing the model output, we can find similar information.
 
 ```{r}
 fit
@@ -106,6 +106,84 @@ This function displays two diagnostic plots for the fitted $Y$ values. The first
 plotFittedValues(fit)
 
 ```
+
+
+# Running JIVE.predict with a Binary Outcome
+
+Now we are going to use the `SimData.bin` data file. Similar to the other data fiel, there are 2 data matrices saved as a list (`X`) and an outcome vector (`Y`). However, `Y` is a binary outcome in case. The number of rows need not match across sources, but each source and the outcome must be collected on the same group of individuals.
+
+```{r}
+str(SimData.bin)
+```
+
+
+Let's say that we want to uncover the joint structure between the data sources and each source's individual structure. Using those structures, we also want to predict the outcome `Y`. We can calculate this by running the `JIVE.pred` function. By default, the ranks of the joint and individual components will be calculated by the permutation approach, and a linear prediction model will be constructed. Since our outcome is binary, we will set the `family` option to `binomial`. JIVE requires a centered and scaled dataset. The centering and scaling can be done internally in the function (center=T and scale=T) if selected.
+
+
+```{r}
+fit <- JIVE.pred(X=SimData.bin$X, Y=SimData.bin$Y, rankJ=1, rankI = c(1,1),
+                 family="binomial")
+
+```
+
+The output shows the final ranks for the joint and individual components as well as the number of iterations it took to reach convergence. By printing the model output, we can find similar information.
+
+```{r}
+fit
+```
+Or if we want a more detailed summary, we can do the following:
+
+```{r}
+summary(fit)
+```
+
+Notice that calculating the sum of squares does not make sense when `Y` is binary, so the variance explained table will not include values for `Y`, and an analysis of deviance table is displayed instead of an ANOVA summary table.
+
+If we want to make predictions, we can do so using the predict function. Make sure the new `X` dataset also contains centered and scaled values for accurate predictions. 
+
+```{r}
+fit.pred <- predict(fit, newdata = SimData.bin$X, center=F, scale=F)
+#MSE
+sum((fit$data$Y-fit.pred$Ypred)^2)/length(fit$data$Y)
+```
+
+
+## Visualization and interpretation
+
+The `sup.r.jive` package contains 3 visualization tools that help display the results. Each of the 3 functions will work for an object of class JIVE.pred, sJIVE, or sesJIVE as its input, but in this vignette, we will briefly discuss each function using the fitted JIVE.predict model from above. Some of the visualizations will look different for a binary outcome than they did for a continuous outcome.
+
+### plotHeatmap()
+
+This function displays a heatmap of the contribution of the joint and individual components. Note that there is not a heatmap for the residual error of the fitted model. 
+
+```{r}
+plotHeatmap(fit) 
+```
+
+The `order_by` option in this function allows the user to order the column by the original data (default), the joint component (`order_by=1`), or the i'th individual component (`order_by=i`).
+
+```{r}
+plotHeatmap(fit, order_by = 0, ylab="Outcome", xlab=c("Data1", "Data2"))
+```
+
+### plotVarExplained()
+
+This function creates a series of barplots to display the percent of variance explained by the joint and individual components. The `col` option allows you to choose the color palette in the graphs. The values graphed in the barplots can be found by the `\$variance` output from the `summary()` function. Since `Y` is not continuous, calculating the variation explained for `Y` does not make sense and is not calculated.
+
+```{r}
+plotVarExplained(fit, col=c("grey20", "grey43", "grey65"))
+
+```
+
+
+### plotFittedValues()
+
+This function will create density plots to show the separation (or lack thereof) between the predictor value and the binary outcome. Note that this is a different plot than when we had a continuous outcome.
+
+```{r}
+plotFittedValues(fit)
+```
+
 
 ## References
 

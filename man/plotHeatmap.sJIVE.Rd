@@ -4,7 +4,7 @@
 \alias{plotHeatmap.sJIVE}
 \title{Heatmap of supervised JIVE output}
 \usage{
-\method{plotHeatmap}{sJIVE}(result, order_by = -1, ylab = "Y", xlab = NULL, ycex = 1)
+\method{plotHeatmap}{sJIVE}(result, order_by = -1, ylab = "Y", xlab = NULL, ycex = 1, ...)
 }
 \arguments{
 \item{result}{an object of class sJIVE}
@@ -21,7 +21,9 @@ hierarchical clustering of Euclidean distances.}
 
 \item{xlab}{a vector with labels for each X dataset}
 
-\item{ycex}{a scalar to change the font size of the labels
+\item{ycex}{a scalar to change the font size of the labels}
+
+\item{...}{further arguments passed to or from other methods
 
  @details This function takes a fitted sJIVE, sesJIVE, or JIVE.pred
  model and plots the results using heatplots. Ensure your plotting window

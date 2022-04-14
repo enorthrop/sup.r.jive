@@ -14,7 +14,8 @@ sJIVE(
   threshold = 0.001,
   method = "permute",
   center.scale = TRUE,
-  reduce.dim = TRUE
+  reduce.dim = TRUE,
+  numCores = 1
 )
 }
 \arguments{
@@ -49,6 +50,9 @@ data should be centered and scaled.}
 
 \item{reduce.dim}{A boolean indicating whether or not dimension
 reduction should be used to increase computation efficiency}
+
+\item{numCores}{An integer specifying the number of cores to use when
+estimating eta.}
 }
 \value{
 Returns an object of class \code{sjive}.

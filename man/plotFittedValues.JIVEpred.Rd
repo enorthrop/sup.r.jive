@@ -4,12 +4,14 @@
 \alias{plotFittedValues.JIVEpred}
 \title{Plot Fitted Values - JIVEpred}
 \usage{
-\method{plotFittedValues}{JIVEpred}(result, graph = 0)
+\method{plotFittedValues}{JIVEpred}(result, graph = 0, ...)
 }
 \arguments{
 \item{result}{A fitted JIVEpred model}
 
 \item{graph}{A value: 0, 1, or 2}
+
+\item{...}{further arguments passed to or from other methods}
 }
 \value{
 

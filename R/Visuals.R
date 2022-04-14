@@ -29,6 +29,21 @@ plotFittedValues <- function(result, ...){
   UseMethod("plotFittedValues")
 }
 
+#' Plot variance explained from supervised JIVE model
+#'
+#' Display a fitted versus actual graph given a
+#' JIVE.pred, sJIVE, or sesJIVE model
+#'
+#' @param result TBD
+#' @param col TBD
+#' @param ... Other arguments
+#'
+#' @return A barplot
+#' @export
+plotVarExplained <- function(result, col, ...){
+  UseMethod("plotVarExplained")
+}
+
 
 
 #### Plot Heatmap for each class #####
@@ -394,7 +409,7 @@ show.image = function(Image,ylab=''){
 
 ####### Plot Variance Graph for each class #######
 
-#' Variance Graph of supervised JIVE output
+#' Variance Graph of JIVEpred output
 #'
 #' Display a barplot given JIVE.pred, sJIVE, or sesJIVE model
 #' to show the amount of variance explained by the model results
@@ -404,12 +419,14 @@ show.image = function(Image,ylab=''){
 #'
 #' @return A set of barplots
 #' @export
-plotVarExplained <- function(result, col=c("grey20", "grey43", "grey65")){
+plotVarExplained.JIVEpred <- function(result, col=c("grey20", "grey43", "grey65"), ...){
 
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
   on.exit(graphics::par(old.par))
 
   s.result <- summary(result)
+
+  if(result$family == "gaussian"){
   l <- ncol(s.result$variance)-2
 
   graphics::par(mar=c(5,4,4,0))
@@ -420,6 +437,47 @@ plotVarExplained <- function(result, col=c("grey20", "grey43", "grey65")){
   graphics::plot.new()
   graphics::legend(x=0.05,y=0.8,legend=c('Joint','Individual','Residual'),
          bty = "n",fill= col)
+  }else{
+    warning("Variation in Y cannot be displayed since Y is not Gaussian")
+    l <- ncol(s.result$variance)-2
+
+    graphics::par(mar=c(5,4,4,0))
+    graphics::layout(matrix(c(1,2),1,2),heights=c(5,5),widths=c(5,2))
+    graphics::barplot(as.matrix(s.result$variance[,-1]),col = col,main = "Variation Explained",
+                      names.arg=names(s.result$variance)[-1])
+    graphics::par(mar=c(0,0,0,0))
+    graphics::plot.new()
+    graphics::legend(x=0.05,y=0.8,legend=c('Joint','Individual','Residual'),
+                     bty = "n",fill= col)
+  }
+}
+
+#' Variance Graph of sJIVE output
+#'
+#' Display a barplot given JIVE.pred, sJIVE, or sesJIVE model
+#' to show the amount of variance explained by the model results
+#'
+#' @param result a fitted JIVE.pred, sJIVE, or sesJIVE model
+#' @param col a vector containing the 3 colors that should be used for the barplot
+#'
+#' @return A set of barplots
+#' @export
+plotVarExplained.sJIVE <- function(result, col=c("grey20", "grey43", "grey65", ...)){
+
+  old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
+  on.exit(graphics::par(old.par))
+
+  s.result <- summary(result)
+    l <- ncol(s.result$variance)-2
+
+    graphics::par(mar=c(5,4,4,0))
+    graphics::layout(matrix(c(1,2),1,2),heights=c(5,5),widths=c(5,2))
+    graphics::barplot(as.matrix(s.result$variance[,-1]),col = col,main = "Variation Explained",
+                      names.arg=names(s.result$variance)[-1])
+    graphics::par(mar=c(0,0,0,0))
+    graphics::plot.new()
+    graphics::legend(x=0.05,y=0.8,legend=c('Joint','Individual','Residual'),
+                     bty = "n",fill= col)
 }
 
 ###### Plot Fitted Values for each class ######
@@ -468,6 +526,7 @@ plotFittedValues.JIVEpred <- function(result, graph=0, ...){
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
   on.exit(graphics::par(old.par))
 
+  if(result$family == "gaussian"){
   rsd <- result$mod.fit$fitted.values - result$data.matrix$Y
   ylims <- max(abs(rsd))
 
@@ -483,6 +542,53 @@ plotFittedValues.JIVEpred <- function(result, graph=0, ...){
   if(graph != 1){
     stats::qqnorm(rsd, ylab="", ylim=c(-ylims, ylims), xlab="Theoretical Quantiles")
     stats::qqline(rsd, lty = 3, col = "gray50")
+  }
+  }else if(result$family == "binomial"){
+      l <- ncol(result$data.matrix)-1
+      dat <- result$data.matrix
+
+      if(l %% 2 == 0){
+      for(i in 1:(l/2)){
+        x <- names(dat)[2*i-1+1]
+        p1 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+                ggplot2::geom_point(alpha=0.33) +
+                ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+        p3 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+                ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+
+        x <- names(dat)[2*i+1]
+        p2 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+          ggplot2::geom_point(alpha=0.33) +
+          ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+        p4 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+          ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+        gridExtra::grid.arrange(p1, p2, p3, p4, ncol=2)
+      }
+      }else{
+        for(i in 1:((l-1)/2)){
+          x <- names(dat)[2*i-1+1]
+          p1 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+            ggplot2::geom_point(alpha=0.33) +
+            ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+          p3 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+            ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+
+          x <- names(dat)[2*i+1]
+          p2 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+            ggplot2::geom_point(alpha=0.33) +
+            ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+          p4 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+            ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+          gridExtra::grid.arrange(p1, p2, p3, p4, ncol=2)
+        }
+        x <- names(dat)[l+1]
+        p1 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+          ggplot2::geom_point(alpha=0.33) +
+          ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+        p3 <- ggplot2::ggplot(dat,ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+          ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+        gridExtra::grid.arrange(p1, p3, ncol=1)
+      }
   }
 }
 

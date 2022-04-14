@@ -7,7 +7,8 @@ Authors@R: c(person("Elise F.", "Palzer", email="north266@umn.edu", role = c("au
              person("Sandra", "Safo", role=c("aut", "ths")))
 Description: Performs supervised extensions to Joint and Individual Variation Explained
     (JIVE) including JIVE predict, supervised JIVE (sJIVE), and sparse exponential 
-    family sJIVE (sesJIVE). Example data files and visualization functions are also included.
+    family sJIVE (sesJIVE). Example data files and visualization functions are also included. 
+    Note that "importFrom(foreach,"%dopar%")"  needs to be constantly added to namespace.
 License: GPL (>= 3) + file LICENSE
 URL: https://github.com/enorthrop/sup.r.jive
 Encoding: UTF-8
@@ -24,7 +25,9 @@ Imports:
     withr,
     doParallel, 
     foreach,
-    gplots
+    gplots,
+    ggplot2,
+    gridExtra
 VignetteBuilder: knitr
 Depends: 
     R (>= 2.10)

@@ -2,19 +2,21 @@
 % Please edit documentation in R/Visuals.R
 \name{plotVarExplained}
 \alias{plotVarExplained}
-\title{Variance Graph of supervised JIVE output}
+\title{Plot variance explained from supervised JIVE model}
 \usage{
-plotVarExplained(result, col = c("grey20", "grey43", "grey65"))
+plotVarExplained(result, col, ...)
 }
 \arguments{
-\item{result}{a fitted JIVE.pred, sJIVE, or sesJIVE model}
+\item{result}{TBD}
 
-\item{col}{a vector containing the 3 colors that should be used for the barplot}
+\item{col}{TBD}
+
+\item{...}{Other arguments}
 }
 \value{
-A set of barplots
+A barplot
 }
 \description{
-Display a barplot given JIVE.pred, sJIVE, or sesJIVE model
-to show the amount of variance explained by the model results
+Display a fitted versus actual graph given a
+JIVE.pred, sJIVE, or sesJIVE model
 }

@@ -80,9 +80,29 @@ or "CV" which uses 5-fold forward CV to determine ranks.}
 
 \item{initial}{Either "uninformative", "svd", or "jive" indicating how to
 generate the initial values for the algorithm. See description for more details.}
+
+\item{center.scale}{A boolean for whether or not to center and scale.}
 }
 \value{
-A fitted model of class sesJIVE
+\code{sesJIVE} returns an object of class "sesJIVE". The function \code{summary}
+(i.e. \code{\link{summary.sesJIVE}}) can be used to summarize the model results, including a
+variance table and testing the significance of the joint and individual components.
+
+An object of class "sesJIVE" is a list containing the following components.
+ \item{S_J}{A matrix capturing the joint scores of the data.}
+ \item{S_I}{A list containing matrices that capture the individual scores of the data.}
+ \item{U_I}{A list containing matrices that capture the joint loadings of the data.}
+ \item{W_I}{A list containing matrices that capture the individual loadings of the data.}
+ \item{theta1}{A vector that captures the effect of the joint scores on the outcome.}
+ \item{theta2}{A list containing vectors that capture the effect of the individual scores on the outcome.}
+ \item{fittedY}{The fitted Y values.}
+ \item{error}{The error value at which the model converged.}
+ \item{all.error}{The error value at each iteration.}
+ \item{iterations}{The number of iterations needed to reach convergence.}
+ \item{rankJ}{The rank of the joint structure.}
+ \item{rankA}{The rank of the individual structure.}
+ \item{eta}{The weight between the data and the outcome.}
+ \item{data}{A list containing the centered and scaled data sets, if applicable.}
 }
 \description{
 Given multi-source data and an outcome, sesJIVE can
@@ -92,4 +112,37 @@ using these structures. These two components are weighted to compromise between
 explaining variation in the multi-source data and in the outcome, and the method
 can enforce sparsity in the results if specified. Data and the outcome
 can follow a normal, Bernoulli, or Poisson distribution.
+}
+\details{
+The method requires the data to be centered and scaled. This
+can be done prior to running the method or by specifying center.scale=T.
+The rank of the joint and individual components,
+the weight between the data and the outcome, and the lambda value for
+sparsity can be pre-specified
+or adaptively selected within the function. The method will print the
+ranks, the weight, the lambda value, and the number of iterations needed
+to reach convergence.
+
+The sesJIVE algorithm uses an iterative reweighted least squares (IRLS)
+approach to solve for the parameters. The parameter estimates are
+initialized by the \code{initial} option in the function. "uninformative"
+will use random values (via the \code{rnorm} function) to initialize the
+starting values. "svd" will take the singular value decomposition (SVD) of the
+concatenated X matrix to initialize the joint components, and will take the SVD
+of each individual X matrix to initialize the individual components. Lastly,
+"jive" will run Lock et al.'s Joint and Variation Explained (JIVE) (2013) method
+and use the model fit to initialize the parameters.
+
+sesJIVE extends JIVE and sJIVE to allow for different data distributions and
+sparsity. It decomposes multi-source data into low-rank,
+orthogonal joint and individual components in a generalized framework that allows
+each X dataset to follow any exponential family distribution. Each component is broken down
+into the loadings, or left eigenvectors, and the scores, the product of the
+eigenvalues and the right eigenvectors. The number of eigenvectors is equal to
+the rank of the component, and the scores are used to predict \code{y}. Sparsity is enforced
+on the loadings using a LASSO penalty (Tibshirani, 1996), but the fitted score matrices
+do not have any penalization.
+}
+\seealso{
+\code{\link{predict.sesJIVE}}  \code{\link{summary.sesJIVE}}
 }

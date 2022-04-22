@@ -4,13 +4,28 @@
 #'
 #' The sup.r.jive package performs supervised joint and individual
 #' explained (JIVE) methods including JIVE.predict, supervised JIVE (sJIVE),
-#' and sparse exponential family JIVE (sesJIVE).
+#' and sparse exponential family JIVE (sesJIVE). The package also includes
+#' three plotting functions for visualizing the variance attributed to
+#' each source and its effect with the outcome.
 #'
-#' @section sup.r.jive functions:
-#' INSERT DESCRIPTION OF FUNCTIONS HERE ...
+#' @author Elise F. Palzer, Sandra E. Safo, and Eric F. Lock
+#'
+#' @references
+#' Kaplan, A, and EF Lock. 2017. "Prediction With Dimension
+#' Reduction of Multiple Molecular Data Sources for Patient  Survival."
+#' Cancer Informatics 16:1-11.
+#'
+#' Lock, EF, KA Hoadley, JS Marron, and AB Nobel. 2013.
+#' “Joint and Individual Variation Explained (JIVE) for Integrated
+#' Analysis of Multiple Data Types.” The Annals of
+#' Applied Statistics 7 (1): 523–42.
+#'
+#' Palzer, EF, C Wendt, R Bowler, CP Hersh, SE Safo, and EF Lock.
+#' 2021. "sJIVE: Supervised Joint and Individual Variation Explained."
+#' Pre-print on arXiv.
 #'
 #' @docType package
-#' @name sup.r.jive
+#' @name sup.r.jive-package
 NULL
 
 

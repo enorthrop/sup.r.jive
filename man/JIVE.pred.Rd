@@ -2,7 +2,7 @@
 % Please edit documentation in R/JIVE.pred.R
 \name{JIVE.pred}
 \alias{JIVE.pred}
-\title{Perform JIVE.Predict}
+\title{Perform JIVE-predict}
 \usage{
 JIVE.pred(
   X,
@@ -22,7 +22,7 @@ JIVE.pred(
 \item{X}{A list of two or more linked data matrices. Each matrix must
 have the same number of columns which is assumed to be common.}
 
-\item{Y}{A numeric outcome expressed as a vector with length equal
+\item{Y}{An outcome expressed as a vector with length equal
 to the number of columns in each view of \code{X}.}
 
 \item{family}{A string specifying the type of prediction model to fit. Options
@@ -43,21 +43,58 @@ orthogonality between individual structures. Default is FALSE.}
 
 \item{method}{A string with the method to use for rank selections.
 Possible options are "given", "perm", and "bic". Default is "perm". If ranks are
-specified, the method "given" will be used.}
+specified, the method "given" will be used. See below for more details.}
 
-\item{maxiter}{The maximum number of iterations in the JIVE method}
+\item{maxiter}{The maximum number of iterations allowed in the JIVE method.}
 
 \item{showProgress}{A boolean indicating whether or not to give output showing
 the progress of the algorithm.}
 }
 \value{
-Returns a fitted JIVE.predict model
+Returns an object of class JIVEpred. The function \code{summary}
+(i.e. \code{\link{summary.JIVEpred}}) can be used to summarize the model results, including a
+variance table and testing the significance of the joint and individual components.
+
+An object of class "JIVEpred" is a list containing the following components.
+ \item{jive.fit}{A list of class "jive" containing the JIVE output. See the
+ \code{jive} function from the r.jive R package for details about this object.}
+ \item{mod.fit}{A list of class "glm" containing the GLM output. See the
+ \code{glm} function from the stats R package for details about this object.}
+ \item{data.matrix}{The data matrix that was used when fitting the GLM. The first column
+ is the centered and scaled outcome, if applicable, and the remaining columns are the joint
+ and individual score matrices.}
+ \item{family}{A string stating which family was used when fitting the GLM}
 }
 \description{
-Perform JIVE.Predict
+Given multi-source data and an outcome, JIVE-predict will
+identify shared (joint) and source-specific (individual)
+underlying structure using Joint and Individual Variation Explained by
+Lock et al. (2013). These structures will then be used to construct
+a generalized linear model (GLM) for the outcome.
+}
+\details{
+The method requires the data to be centered and scaled. This
+can be done prior to running the method or by specifying center=T and scale=T.
+The rank of the joint and individual components can be pre-specified
+or adaptively selected within the function using JIVE's permutation approach
+(\code{method="perm"}) or based on the Bayesian Information Criterion (\code{method="bic"}).
+When \code{method="given"}, JIVE will use the user-specified ranks. If TRUE, \code{showProgress}
+will print out updates about the number of iterations the JIVE algorithm is taking and the
+progress of the rank selection method, if applicable.
+
+JIVE-predict extends JIVE to allow for supervision.
+The function first runs JIVE to decompose multi-source data into low-rank,
+orthogonal joint and individual components. Each component can be further broken down
+into the loadings, or left eigenvectors, and the scores, the product of the
+eigenvalues and the right eigenvectors. The number of eigenvectors is equal to
+the rank of the component. JIVE-predict takes the scores from the fitted JIVE
+model and uses them in a GLM function to predict \code{y}.
 }
 \examples{
 train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
 train.y <- rnorm(20)
 train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankI=c(1,1))
+}
+\seealso{
+\code{\link{predict.JIVEpred}}  \code{\link{summary.JIVEpred}}
 }

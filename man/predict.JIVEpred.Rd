@@ -2,27 +2,35 @@
 % Please edit documentation in R/JIVE.pred.R
 \name{predict.JIVEpred}
 \alias{predict.JIVEpred}
-\title{Prediction with JIVE.predict model}
+\title{Prediction for JIVE-predict}
 \usage{
-\method{predict}{JIVEpred}(object, newdata, center = F, scale = F, ...)
+\method{predict}{JIVEpred}(object, newdata, ...)
 }
 \arguments{
-\item{object}{Fitted JIVE.predict model}
+\item{object}{An object of class "JIVEpred", usually a fitted JIVE-predict model.}
 
-\item{newdata}{A list of two or more linked data matrices. Each matrix must
-have the same number of columns which is assumed to be common.}
-
-\item{center}{A boolean indicating whether or not newdata needs to be centered.}
-
-\item{scale}{A boolean indicating whether or not newdata needs to be scaled.}
+\item{newdata}{A list of matrices representing the new X datasets.}
 
 \item{...}{further arguments passed to or from other methods.}
 }
 \value{
-Predictions for Y
+A list of the following components is returned:
+ \item{Ypred}{The fitted Y values.}
+ \item{Ynat}{The fitted values of Y's natural parameter space.}
+ \item{joint.scores}{A matrix capturing the the joint scores of newdata.}
+ \item{indiv.scores}{A list containing matrices that capture the individual scores of newdata.}
+ \item{error}{The error value at which the model converged.}
 }
 \description{
-Prediction with JIVE.predict model
+Predicted values based on the an JIVE-predict model.
+}
+\details{
+\code{predict.JIVEpred} calculates predicted values for \code{newdata}
+based on the fitted model. The function first calculates the joint and
+individual score matrices for \code{newdata} treating the loading matrices from
+the initial JIVE model as fixed.
+Once the new score matrices are obtained, the GLM prediction will be
+evaluated using the new scores as the data matrix.
 }
 \examples{
 train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))

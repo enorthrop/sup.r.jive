@@ -7,21 +7,35 @@
 \method{predict}{sJIVE}(object, newdata, threshold = 0.001, max.iter = 2000, ...)
 }
 \arguments{
-\item{object}{A fitted sJIVE model}
+\item{object}{An object of class "sJIVE", usually a fitted sJIVE model.}
 
-\item{newdata}{A list of matrices representing the new X dataset}
+\item{newdata}{A list of matrices representing the new X datasets.}
 
-\item{threshold}{The threshold}
+\item{threshold}{The threshold used to determine convergence of the algorithm.}
 
-\item{max.iter}{The max number of iterations}
+\item{max.iter}{The maximum number of iterations for each instance
+of the sJIVE algorithm.}
 
-\item{...}{further arguments passed to or from other methods}
+\item{...}{further arguments passed to or from other methods.}
 }
 \value{
-A list of stuff
+A list of the following components is returned:
+ \item{Ypred}{The fitted Y values.}
+ \item{S_J}{A matrix capturing the joint scores of newdata.}
+ \item{S_I}{A list containing matrices that capture the individual scores of newdata.}
+ \item{iterations}{The number of iterations needed to reach convergence.}
+ \item{error}{The error value at which the model converged.}
 }
 \description{
-Prediction for sJIVE
+Predicted values based on the an sJIVE model.
+}
+\details{
+\code{predict.sJIVE} calculates predicted values for \code{newdata}
+based on the fitted model. The function first calculates the joint and
+individual score matrices for \code{newdata}. Note that the fitted model's
+loadings and coefficients are treated as known and will not get re-calculated.
+Once the new score matrices are obtained, the linear prediction model will be
+evaluated using the new scores as the data matrix.
 }
 \examples{
 train.x <- list(matrix(rnorm(300), ncol=20),matrix(rnorm(200), ncol=20))

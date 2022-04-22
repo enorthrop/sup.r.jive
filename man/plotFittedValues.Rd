@@ -2,19 +2,52 @@
 % Please edit documentation in R/Visuals.R
 \name{plotFittedValues}
 \alias{plotFittedValues}
+\alias{plotFittedValues.sJIVE}
+\alias{plotFittedValues.JIVEpred}
 \title{Plot fitted values from supervised JIVE model}
 \usage{
 plotFittedValues(result, ...)
+
+\method{plotFittedValues}{sJIVE}(result, graph = 0, ...)
+
+\method{plotFittedValues}{JIVEpred}(result, graph = 0, ...)
 }
 \arguments{
-\item{result}{TBD}
+\item{result}{A fitted JIVEpred model}
 
-\item{...}{Other arguments}
+\item{...}{further arguments passed to or from other methods}
+
+\item{graph}{A value: 0, 1, or 2}
 }
 \value{
-A diagnostic plot
+Diagnostic plot(s)
 }
 \description{
-Display a fitted versus actual graph given a
+Display adiagnostic plots given a
 JIVE.pred, sJIVE, or sesJIVE model
+}
+\details{
+Depending if the outcome is Gaussian or binary, different diagnostic plots
+will be generated. If the outcome is Gaussian, a residual plot and a Q-Q plot will
+be created. If the outcome is binary, two plots will be created for each joint and
+individual component: the first will plot a Loess curve, and the second
+will contain a density plot. Both plots help show the separation, or lack thereof,
+between the component and the outcome.
+
+description of plotFittedValues.JIVEpred here.
+
+description of plotFittedValues.sJIVE here.
+}
+\section{Methods (by class)}{
+\itemize{
+\item \code{sJIVE}: 
+
+\item \code{JIVEpred}: 
+}}
+
+\examples{
+\dontrun{
+#Let fit be a fitted sJIVE, JIVE.pred, or sesJIVE model
+plotFittedValues(fit)
+}
 }

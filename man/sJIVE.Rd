@@ -20,7 +20,8 @@ sJIVE(
 }
 \arguments{
 \item{X}{A list of two or more linked data matrices. Each matrix must
-have the same number of columns which is assumed to be common.}
+have the same number of columns, which is assumed to be common, but the
+number of rows may differ.}
 
 \item{Y}{A numeric outcome expressed as a vector with length equal
 to the number of columns in each view of \code{X}.}
@@ -31,7 +32,7 @@ If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.}
 \item{rankA}{A vector specifying the individual ranks of the data.
 If \code{rankA=NULL}, ranks will be determined by the \code{method} option.}
 
-\item{eta}{A value or vector of values between 0 and 1. If \code{eta}
+\item{eta}{A value or vector of values greater than 0 and less than 1. If \code{eta}
 is a single value, \code{X} will be weighted by \code{eta} and \code{Y}
 will be weighted by \code{1-eta}. if \code{eta} is a vector, 5-fold
 CV will pick the \code{eta} that minimizes the test MSE.}
@@ -41,7 +42,7 @@ of the sJIVE algorithm.}
 
 \item{threshold}{The threshold used to determine convergence of the algorithm.}
 
-\item{method}{A string with which rank selection method to use.
+\item{method}{A string specifying which rank selection method to use.
 Possible options are "permute" which uses JIVE's permutation method,
 or "CV" which uses 5-fold forward CV to determine ranks.}
 
@@ -49,13 +50,31 @@ or "CV" which uses 5-fold forward CV to determine ranks.}
 data should be centered and scaled.}
 
 \item{reduce.dim}{A boolean indicating whether or not dimension
-reduction should be used to increase computation efficiency}
+reduction should be used to increase computation efficiency.}
 
 \item{numCores}{An integer specifying the number of cores to use when
-estimating eta.}
+estimating eta. Default is 1.}
 }
 \value{
-Returns an object of class \code{sjive}.
+\code{sJIVE} returns an object of class "sJIVE". The function \code{summary}
+(i.e. \code{\link{summary.sJIVE}}) can be used to summarize the model results, including a
+variance table and testing the significance of the joint and individual components.
+
+An object of class "sJIVE" is a list containing the following components.
+ \item{S_J}{A matrix capturing the joint scores of the data.}
+ \item{S_I}{A list containing matrices that capture the individual scores of the data.}
+ \item{U_I}{A list containing matrices that capture the joint loadings of the data.}
+ \item{W_I}{A list containing matrices that capture the individual loadings of the data.}
+ \item{theta1}{A vector that captures the effect of the joint scores on the outcome.}
+ \item{theta2}{A list containing vectors that capture the effect of the individual scores on the outcome.}
+ \item{fittedY}{The fitted Y values.}
+ \item{error}{The error value at which the model converged.}
+ \item{all.error}{The error value at each iteration.}
+ \item{iterations}{The number of iterations needed to reach convergence.}
+ \item{rankJ}{The rank of the joint structure.}
+ \item{rankA}{The rank of the individual structure.}
+ \item{eta}{The weight between the data and the outcome.}
+ \item{data}{A list containing the centered and scaled data sets, if applicable.}
 }
 \description{
 Given multi-source data and a continuous outcome, sJIVE can
@@ -65,9 +84,20 @@ using these structures. These two components are weighted to compromise between
 explaining variation in the multi-source data and in the outcome.
 }
 \details{
+The method requires the data to be centered and scaled. This
+can be done prior to running the method or by specifying center.scale=T.
 The rank of the joint and individual components as well as
 the weight between the data and the outcome can be pre-specified
-or adaptively selected within the function.
+or adaptively selected within the function. The method will print the
+ranks, the weight, and the number of iterations needed
+to reach convergence.
+
+\code{sJIVE} extends \code{jive} to allow for simultaneous prediction
+of a continuous outcome. It decomposes multi-source data into low-rank,
+orthogonal joint and individual components. Each component is broken down
+into the loadings, or left eigenvectors, and the scores, the product of the
+eigenvalues and the right eigenvectors. The number of eigenvectors is equal to
+the rank of the component, and the scores are used to predict \code{y}.
 }
 \examples{
 train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
@@ -79,5 +109,5 @@ train.fit <- sJIVE(X=X,Y=Y,rankJ=1,rankA=c(1,1),eta=0.5)
 }
 }
 \seealso{
-\code{\link{predict.sJIVE}}
+\code{\link{predict.sJIVE}}  \code{\link{summary.sJIVE}}
 }

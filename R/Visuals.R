@@ -3,12 +3,20 @@
 
 ###### Generic Functions  ######
 
-#' Plot Heatmap Generic Function
+#' Plot Heatmap for a supervised JIVE model
 #'
-#' @param result TBD
-#' @param ... Other arguments
+#' A heat map to visually display the joint and invidual components
+#' in a fitted model.
 #'
-#' @return
+#' @param result An object of class "sJIVE", "JIVEpred", "sesJIVE".
+#' @param ... further arguments passed to or from other methods.
+#'
+#' @details This function takes a fitted sJIVE, sesJIVE, or JIVE.pred
+#' model and plots the results using heatplots. Ensure your plotting window
+#' is sufficiently large prior to running this function to get the
+#' best results visually.
+#'
+#' @return A heat map.
 #' @export
 plotHeatmap <- function(result, ...) {
   UseMethod("plotHeatmap")
@@ -17,28 +25,44 @@ plotHeatmap <- function(result, ...) {
 
 #' Plot fitted values from supervised JIVE model
 #'
-#' Display a fitted versus actual graph given a
+#' Display adiagnostic plots given a
 #' JIVE.pred, sJIVE, or sesJIVE model
 #'
-#' @param result TBD
-#' @param ... Other arguments
+#' @param result A fitted JIVEpred model
+#' @param ... further arguments passed to or from other methods
 #'
-#' @return A diagnostic plot
+#' @details Depending if the outcome is Gaussian or binary, different diagnostic plots
+#' will be generated. If the outcome is Gaussian, a residual plot and a Q-Q plot will
+#' be created. If the outcome is binary, two plots will be created for each joint and
+#' individual component: the first will plot a Loess curve, and the second
+#' will contain a density plot. Both plots help show the separation, or lack thereof,
+#' between the component and the outcome.
+#'
+#' @return Diagnostic plot(s)
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' #Let fit be a fitted sJIVE, JIVE.pred, or sesJIVE model
+#' plotFittedValues(fit)
+#' }
 plotFittedValues <- function(result, ...){
   UseMethod("plotFittedValues")
 }
 
-#' Plot variance explained from supervised JIVE model
+#' Variance Graph of supervised JIVE output
 #'
-#' Display a fitted versus actual graph given a
-#' JIVE.pred, sJIVE, or sesJIVE model
+#' Display a barplot given JIVE.pred, sJIVE, or sesJIVE model
+#' to show the amount of variance explained by the model results
 #'
-#' @param result TBD
-#' @param col TBD
-#' @param ... Other arguments
+#' @param result An object of class "sJIVE", "JIVEpred", "sesJIVE".
+#' @param col a vector containing the 3 colors that should be used for the barplot.
+#' @param ... further arguments passed to or from other methods.
 #'
-#' @return A barplot
+#' @details A barplot for each \code{X} dataset and the outcome will be graphed. If \code{y}
+#' is not continuous (e.g. if it is binary), a barplot for \code{y} will not be plotted.
+#'
+#' @return A set of barplots
 #' @export
 plotVarExplained <- function(result, col, ...){
   UseMethod("plotVarExplained")
@@ -48,11 +72,13 @@ plotVarExplained <- function(result, col, ...){
 
 #### Plot Heatmap for each class #####
 
-#' Heatmap of supervised JIVE output
+#' plotHeatmap.sJIVE
 #'
-#' Display a heatmap of JIVE.pred, sJIVE, or sesJIVE model
+#' @describeIn plotHeatmap
 #'
-#' @param result an object of class sJIVE
+#' @details description of plotHeatmap.sJIVE here.
+#'
+#'
 #' @param order_by specifies how to order the rows and columns
 #'  of the heatmap. #If order_by=-1, orderings are determined
 #'  by the outcome. If order_by=0, orderings are determined
@@ -65,15 +91,7 @@ plotVarExplained <- function(result, col, ...){
 #' @param ycex a scalar to change the font size of the labels
 #' @param ... further arguments passed to or from other methods
 #'
-#'  @details This function takes a fitted sJIVE, sesJIVE, or JIVE.pred
-#'  model and plots the results using heatplots. Ensure your plotting window
-#'  is sufficiently large prior to running this function to get the
-#'  best results visually.
-#'
-#'
-#' @return A heatmap
 #' @export
-#'
 #' @examples
 #' data(SimData.norm)
 #' fit <- sJIVE(X=SimData.norm$X,Y=SimData.norm$Y,
@@ -219,32 +237,13 @@ plotHeatmap.sJIVE <- function(result, order_by=-1,
 
 
 
-#' Heatmap of JIVE.predict output
+#' plotHeatmap.JIVEpred
 #'
-#' Display a heatmap of JIVE.pred model
+#' @describeIn plotHeatmap
 #'
-#' @param result an object of class JIVEpred
-#' @param order_by specifies how to order the rows and columns
-#'  of the heatmap. #If order_by=-1, orderings are determined
-#'  by the outcome. If order_by=0, orderings are determined
-#'  by joint structure.  Otherwise, order_by gives the number
-#'  of the individual structure dataset to determine the ordering.
-#'  In all cases orderings are determined by complete-linkage
-#'  hierarchical clustering of Euclidean distances.
-#' @param ylab a label for the outcome dataset
-#' @param xlab a vector with labels for each X dataset
-#' @param ycex a scalar to change the font size of the labels
-#' @param ... further arguments passed to or from other methods
+#' @details description of plotHeatmap.JIVEpred here.
 #'
-#'  @details This function takes a fitted JIVE.pred
-#'  model and plots the results using heatplots. Ensure your plotting window
-#'  is sufficiently large prior to running this function to get the
-#'  best results visually.
-#'
-#'
-#' @return A heatmap
 #' @export
-#'
 #' @examples
 #' data(SimData.norm)
 #' fit <- JIVE.pred(X=SimData.norm$X,Y=SimData.norm$Y,
@@ -409,16 +408,18 @@ show.image = function(Image,ylab=''){
 
 ####### Plot Variance Graph for each class #######
 
-#' Variance Graph of JIVEpred output
+#' plotVarExplained.JIVEpred
 #'
-#' Display a barplot given JIVE.pred, sJIVE, or sesJIVE model
-#' to show the amount of variance explained by the model results
+#' @describeIn plotVarExplained
 #'
-#' @param result a fitted JIVE.pred, sJIVE, or sesJIVE model
-#' @param col a vector containing the 3 colors that should be used for the barplot
+#' @details description of plotVarExplained.JIVEpred here.
 #'
-#' @return A set of barplots
 #' @export
+#' @examples
+#' \dontrun{
+#' #Let fit be a fitted sJIVE, JIVE.pred, or sesJIVE model
+#' plotVarExplained(fit, col=c("grey20", "grey43", "grey65"))
+#' }
 plotVarExplained.JIVEpred <- function(result, col=c("grey20", "grey43", "grey65"), ...){
 
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
@@ -452,17 +453,14 @@ plotVarExplained.JIVEpred <- function(result, col=c("grey20", "grey43", "grey65"
   }
 }
 
-#' Variance Graph of sJIVE output
+#' plotVarExplained.sJIVE
 #'
-#' Display a barplot given JIVE.pred, sJIVE, or sesJIVE model
-#' to show the amount of variance explained by the model results
+#' @describeIn plotVarExplained
 #'
-#' @param result a fitted JIVE.pred, sJIVE, or sesJIVE model
-#' @param col a vector containing the 3 colors that should be used for the barplot
+#' @details description of plotVarExplained.sJIVE here.
 #'
-#' @return A set of barplots
 #' @export
-plotVarExplained.sJIVE <- function(result, col=c("grey20", "grey43", "grey65", ...)){
+plotVarExplained.sJIVE <- function(result, col=c("grey20", "grey43", "grey65"), ...){
 
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
   on.exit(graphics::par(old.par))
@@ -480,15 +478,16 @@ plotVarExplained.sJIVE <- function(result, col=c("grey20", "grey43", "grey65", .
                      bty = "n",fill= col)
 }
 
+
 ###### Plot Fitted Values for each class ######
 
-#' Plot Fitted Values - sJIVE
+#' plotFittedValues.JIVEpred
 #'
-#' @param result A fitted sJIVE model
-#' @param graph A value: 0, 1, or 2.
-#' @param ... further arguments passed to or from other methods
+#' @describeIn plotFittedValues
 #'
-#' @return
+#' @details description of plotFittedValues.JIVEpred here.
+#'
+#' @param graph A value: 0, 1, or 2
 #' @export
 plotFittedValues.sJIVE <- function(result, graph=0, ...){
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
@@ -514,13 +513,12 @@ plotFittedValues.sJIVE <- function(result, graph=0, ...){
 
 
 
-#' Plot Fitted Values - JIVEpred
+#' plotFittedValues.sJIVE
 #'
-#' @param result A fitted JIVEpred model
-#' @param graph A value: 0, 1, or 2
-#' @param ... further arguments passed to or from other methods
+#' @describeIn plotFittedValues
 #'
-#' @return
+#' @details description of plotFittedValues.sJIVE here.
+#'
 #' @export
 plotFittedValues.JIVEpred <- function(result, graph=0, ...){
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed

@@ -2,27 +2,41 @@
 % Please edit documentation in R/JIVE.pred.R
 \name{summary.JIVEpred}
 \alias{summary.JIVEpred}
-\title{Summary JIVE.Predict}
+\alias{print.JIVEpred}
+\title{Summarizing JIVE-predict Model Fits}
 \usage{
 \method{summary}{JIVEpred}(object, ...)
+
+\method{print}{JIVEpred}(x, ...)
 }
 \arguments{
-\item{object}{A fitted JIVE.predict model}
+\item{object}{An object of class "JIVEpred", usually a fitted JIVE-predict model.
 
-\item{...}{further arguments passed to or from other methods}
-}
-\value{
-Summary measures
-}
-\description{
-Display summary data of an JIVE.predict model
-}
-\details{
-This function gives summary results from
-JIVE.predict. Amount of variance explained
+#' @details Both the \code{print} and the \code{summary} functions
+give summary results for a fitted JIVE-predict model.
+
+For the \code{summary} function, amount of variance explained
 is expressed in terms of the standardized Frobenious
 norm. Partial R-squared values are calculated for the
 joint and individual components. If rank=1, a z-statistic
 is calculated to determine the p-value. If rank>1, an F-statistic
 is calculated.
+
+For the \code{print} function, the output displays the \code{print.glm}
+result for the fitted GLM model.}
+
+\item{...}{further arguments passed to or from other methods.}
+
+\item{x}{a fitted JIVEpred model.}
 }
+\value{
+Summary measures
+}
+\description{
+Summary methods for an JIVE-predict model of class "JIVEpred".
+}
+\section{Functions}{
+\itemize{
+\item \code{print.JIVEpred}: 
+}}
+

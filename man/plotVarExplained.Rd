@@ -2,21 +2,48 @@
 % Please edit documentation in R/Visuals.R
 \name{plotVarExplained}
 \alias{plotVarExplained}
-\title{Plot variance explained from supervised JIVE model}
+\alias{plotVarExplained.JIVEpred}
+\alias{plotVarExplained.sJIVE}
+\title{Variance Graph of supervised JIVE output}
 \usage{
 plotVarExplained(result, col, ...)
+
+\method{plotVarExplained}{JIVEpred}(result, col = c("grey20", "grey43", "grey65"), ...)
+
+\method{plotVarExplained}{sJIVE}(result, col = c("grey20", "grey43", "grey65", ...))
 }
 \arguments{
-\item{result}{TBD}
+\item{result}{An object of class "sJIVE", "JIVEpred", "sesJIVE".}
 
-\item{col}{TBD}
+\item{col}{a vector containing the 3 colors that should be used for the barplot.}
 
-\item{...}{Other arguments}
+\item{...}{further arguments passed to or from other methods.}
 }
 \value{
-A barplot
+A set of barplots
 }
 \description{
-Display a fitted versus actual graph given a
-JIVE.pred, sJIVE, or sesJIVE model
+Display a barplot given JIVE.pred, sJIVE, or sesJIVE model
+to show the amount of variance explained by the model results
+}
+\details{
+A barplot for each \code{X} dataset and the outcome will be graphed. If \code{y}
+is not continuous (e.g. if it is binary), a barplot for \code{y} will not be plotted.
+
+description of plotVarExplained.JIVEpred here.
+
+description of plotVarExplained.sJIVE here.
+}
+\section{Methods (by class)}{
+\itemize{
+\item \code{JIVEpred}: 
+
+\item \code{sJIVE}: 
+}}
+
+\examples{
+\dontrun{
+#Let fit be a fitted sJIVE, JIVE.pred, or sesJIVE model
+plotVarExplained(fit, col=c("grey20", "grey43", "grey65"))
+}
 }

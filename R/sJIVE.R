@@ -10,38 +10,70 @@
 #' explaining variation in the multi-source data and in the outcome.
 #'
 #' @param X A list of two or more linked data matrices. Each matrix must
-#' have the same number of columns which is assumed to be common.
+#' have the same number of columns, which is assumed to be common, but the
+#' number of rows may differ.
 #' @param Y A numeric outcome expressed as a vector with length equal
 #' to the number of columns in each view of \code{X}.
 #' @param rankJ An integer specifying the joint rank of the data.
 #' If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.
 #' @param rankA A vector specifying the individual ranks of the data.
 #' If \code{rankA=NULL}, ranks will be determined by the \code{method} option.
-#' @param eta A value or vector of values between 0 and 1. If \code{eta}
+#' @param eta A value or vector of values greater than 0 and less than 1. If \code{eta}
 #' is a single value, \code{X} will be weighted by \code{eta} and \code{Y}
 #' will be weighted by \code{1-eta}. if \code{eta} is a vector, 5-fold
 #' CV will pick the \code{eta} that minimizes the test MSE.
 #' @param max.iter The maximum number of iterations for each instance
 #' of the sJIVE algorithm.
 #' @param threshold The threshold used to determine convergence of the algorithm.
-#' @param method A string with which rank selection method to use.
+#' @param method A string specifying which rank selection method to use.
 #' Possible options are "permute" which uses JIVE's permutation method,
 #' or "CV" which uses 5-fold forward CV to determine ranks.
 #' @param center.scale A boolean indicating whether or not the
 #' data should be centered and scaled.
 #' @param reduce.dim A boolean indicating whether or not dimension
-#' reduction should be used to increase computation efficiency
+#' reduction should be used to increase computation efficiency.
 #' @param numCores An integer specifying the number of cores to use when
-#' estimating eta.
+#' estimating eta. Default is 1.
 #'
-#' @details The rank of the joint and individual components as well as
+#' @details The method requires the data to be centered and scaled. This
+#' can be done prior to running the method or by specifying center.scale=T.
+#' The rank of the joint and individual components as well as
 #' the weight between the data and the outcome can be pre-specified
-#' or adaptively selected within the function.
+#' or adaptively selected within the function. The method will print the
+#' ranks, the weight, and the number of iterations needed
+#' to reach convergence.
 #'
-#' @return Returns an object of class \code{sjive}.
+#' \code{sJIVE} extends \code{jive} to allow for simultaneous prediction
+#' of a continuous outcome. It decomposes multi-source data into low-rank,
+#' orthogonal joint and individual components. Each component is broken down
+#' into the loadings, or left eigenvectors, and the scores, the product of the
+#' eigenvalues and the right eigenvectors. The number of eigenvectors is equal to
+#' the rank of the component, and the scores are used to predict \code{y}.
+#'
+#
+#' @return \code{sJIVE} returns an object of class "sJIVE". The function \code{summary}
+#' (i.e. \code{\link{summary.sJIVE}}) can be used to summarize the model results, including a
+#' variance table and testing the significance of the joint and individual components.
+#'
+#' An object of class "sJIVE" is a list containing the following components.
+#'  \item{S_J}{A matrix capturing the joint scores of the data.}
+#'  \item{S_I}{A list containing matrices that capture the individual scores of the data.}
+#'  \item{U_I}{A list containing matrices that capture the joint loadings of the data.}
+#'  \item{W_I}{A list containing matrices that capture the individual loadings of the data.}
+#'  \item{theta1}{A vector that captures the effect of the joint scores on the outcome.}
+#'  \item{theta2}{A list containing vectors that capture the effect of the individual scores on the outcome.}
+#'  \item{fittedY}{The fitted Y values.}
+#'  \item{error}{The error value at which the model converged.}
+#'  \item{all.error}{The error value at each iteration.}
+#'  \item{iterations}{The number of iterations needed to reach convergence.}
+#'  \item{rankJ}{The rank of the joint structure.}
+#'  \item{rankA}{The rank of the individual structure.}
+#'  \item{eta}{The weight between the data and the outcome.}
+#'  \item{data}{A list containing the centered and scaled data sets, if applicable.}
+#'
 #' @export
 #'
-#' @seealso \code{\link{predict.sJIVE}}
+#' @seealso \code{\link{predict.sJIVE}}  \code{\link{summary.sJIVE}}
 #'
 #' @examples
 #' train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
@@ -132,13 +164,29 @@ sJIVE <- function(X, Y, rankJ = NULL, rankA=NULL,eta=c(0.01, 0.1, 0.25, 0.5, 0.7
 
 #' Prediction for sJIVE
 #'
-#' @param object A fitted sJIVE model
-#' @param newdata A list of matrices representing the new X dataset
-#' @param threshold The threshold
-#' @param max.iter The max number of iterations
-#' @param ... further arguments passed to or from other methods
+#' Predicted values based on the an sJIVE model.
 #'
-#' @return A list of stuff
+#' @param object An object of class "sJIVE", usually a fitted sJIVE model.
+#' @param newdata A list of matrices representing the new X datasets.
+#' @param threshold The threshold used to determine convergence of the algorithm.
+#' @param max.iter The maximum number of iterations for each instance
+#' of the sJIVE algorithm.
+#' @param ... further arguments passed to or from other methods.
+#'
+#' @details \code{predict.sJIVE} calculates predicted values for \code{newdata}
+#' based on the fitted model. The function first calculates the joint and
+#' individual score matrices for \code{newdata}. Note that the fitted model's
+#' loadings and coefficients are treated as known and will not get re-calculated.
+#' Once the new score matrices are obtained, the linear prediction model will be
+#' evaluated using the new scores as the data matrix.
+#'
+#' @return A list of the following components is returned:
+#'  \item{Ypred}{The fitted Y values.}
+#'  \item{S_J}{A matrix capturing the joint scores of newdata.}
+#'  \item{S_I}{A list containing matrices that capture the individual scores of newdata.}
+#'  \item{iterations}{The number of iterations needed to reach convergence.}
+#'  \item{error}{The error value at which the model converged.}
+#'
 #' @export
 #'
 #' @examples
@@ -226,62 +274,28 @@ predict.sJIVE <- function(object, newdata, threshold = 0.001, max.iter=2000, ...
   return(list(Ypred = Ypred,
               Sj = Sj,
               Si = Si,
-              iteration = iter,
+              iterations = iter,
               error = error.new))
 }
 
-
-#' Print.sJIVE
+#' Summarizing sJIVE Model Fits
 #'
-#' @param x a fitted sJIVE model
-#' @param ... further arguments passed to or from other methods
+#' Summary methods for an sJIVE model of class "sJIVE".
 #'
-#' @return
-#' @export
-print.sJIVE <- function(x, ...) {
-  k <- length(x$data$X)
-  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
-                          Rank = c(x$rankJ, x$rankA))
-  tbl_coef <- NULL
-  if(x$rankJ>0){
-  for(i in 1:x$rankJ){
-    new.col=c(paste0("Joint_",i), x$theta1[i])
-    tbl_coef <- cbind(tbl_coef, new.col)
-  }}
-  for(j in 1:k){
-    if(x$rankA[j]>0){
-      for(i in 1:x$rankA[j]){
-        new.col=c(paste0("Individual",j,"_", i), x$theta2[[j]][i])
-        tbl_coef <- cbind(tbl_coef, new.col)
-      }}
-  }
-
-  cat("eta:", x$eta, "\n")
-  cat("Ranks: \n")
-  for(i in 1:nrow(tbl_ranks)){
-    cat("   ",  unlist(tbl_ranks[i,]), "\n")
-  }
-  cat("Coefficients: \n")
-  for(i in 1:ncol(tbl_coef)){
-    cat("   ",  unlist(tbl_coef[,i]), "\n")
-  }
-}
-
-
-#' Summary.sJIVE
+#' @param object An object of class "sJIVE", usually a fitted sJIVE model.
 #'
-#' Display summary data of an sJIVE model
+#' @details Both the \code{print} and the \code{summary} functions
+#' give summary results for a fitted sJIVE model.
 #'
-#' @param object A fitted sJIVE model
-#' @param ... further arguments passed to or from other methods
-#'
-#' @details This function gives summary results from
-#' sJIVE. Amount of variance explained
+#' For the \code{summary} function, amount of variance explained
 #' is expressed in terms of the standardized Frobenious
 #' norm. Partial R-squared values are calculated for the
 #' joint and individual components. If rank=1, a z-statistic
 #' is calculated to determine the p-value. If rank>1, an F-statistic
 #' is calculated.
+#'
+#' For the \code{print} function, the coeffecients are simply
+#' printouts of theta1 and theta2 from the sJIVE model.
 #'
 #' @return Summary measures
 #' @export
@@ -370,6 +384,41 @@ summary.sJIVE <- function(object, ...){
               variance=var.table,
               pred.model=tbl))
 }
+
+
+#' @describeIn summary.sJIVE
+#'
+#' @param x a fitted sJIVE model.
+#' @param ... further arguments passed to or from other methods.
+print.sJIVE <- function(x, ...) {
+  k <- length(x$data$X)
+  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
+                          Rank = c(x$rankJ, x$rankA))
+  tbl_coef <- NULL
+  if(x$rankJ>0){
+  for(i in 1:x$rankJ){
+    new.col=c(paste0("Joint_",i), x$theta1[i])
+    tbl_coef <- cbind(tbl_coef, new.col)
+  }}
+  for(j in 1:k){
+    if(x$rankA[j]>0){
+      for(i in 1:x$rankA[j]){
+        new.col=c(paste0("Individual",j,"_", i), x$theta2[[j]][i])
+        tbl_coef <- cbind(tbl_coef, new.col)
+      }}
+  }
+
+  cat("eta:", x$eta, "\n")
+  cat("Ranks: \n")
+  for(i in 1:nrow(tbl_ranks)){
+    cat("   ",  unlist(tbl_ranks[i,]), "\n")
+  }
+  cat("Coefficients: \n")
+  for(i in 1:ncol(tbl_coef)){
+    cat("   ",  unlist(tbl_coef[,i]), "\n")
+  }
+}
+
 
 ########################## Helper Functions: #######################
 sJIVE.converge <- function(X, Y, eta=NULL, max.iter=1000, threshold = 0.001,

@@ -1,11 +1,17 @@
 #JIVE.pred and JIVE.pred.predict() functions
 
 
-#' Perform JIVE.Predict
+#' Perform JIVE-predict
+#'
+#' Given multi-source data and an outcome, JIVE-predict will
+#' identify shared (joint) and source-specific (individual)
+#' underlying structure using Joint and Individual Variation Explained by
+#' Lock et al. (2013). These structures will then be used to construct
+#' a generalized linear model (GLM) for the outcome.
 #'
 #' @param X A list of two or more linked data matrices. Each matrix must
 #' have the same number of columns which is assumed to be common.
-#' @param Y A numeric outcome expressed as a vector with length equal
+#' @param Y An outcome expressed as a vector with length equal
 #' to the number of columns in each view of \code{X}.
 #' @param rankJ An integer specifying the joint rank of the data.
 #' If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.
@@ -19,13 +25,45 @@
 #' orthogonality between individual structures. Default is FALSE.
 #' @param method A string with the method to use for rank selections.
 #' Possible options are "given", "perm", and "bic". Default is "perm". If ranks are
-#' specified, the method "given" will be used.
-#' @param maxiter The maximum number of iterations in the JIVE method
+#' specified, the method "given" will be used. See below for more details.
+#' @param maxiter The maximum number of iterations allowed in the JIVE method.
 #' @param showProgress A boolean indicating whether or not to give output showing
 #' the progress of the algorithm.
 #'
-#' @return Returns a fitted JIVE.predict model
+#' @details The method requires the data to be centered and scaled. This
+#' can be done prior to running the method or by specifying center=T and scale=T.
+#' The rank of the joint and individual components can be pre-specified
+#' or adaptively selected within the function using JIVE's permutation approach
+#' (\code{method="perm"}) or based on the Bayesian Information Criterion (\code{method="bic"}).
+#' When \code{method="given"}, JIVE will use the user-specified ranks. If TRUE, \code{showProgress}
+#' will print out updates about the number of iterations the JIVE algorithm is taking and the
+#' progress of the rank selection method, if applicable.
+#'
+#' JIVE-predict extends JIVE to allow for supervision.
+#' The function first runs JIVE to decompose multi-source data into low-rank,
+#' orthogonal joint and individual components. Each component can be further broken down
+#' into the loadings, or left eigenvectors, and the scores, the product of the
+#' eigenvalues and the right eigenvectors. The number of eigenvectors is equal to
+#' the rank of the component. JIVE-predict takes the scores from the fitted JIVE
+#' model and uses them in a GLM function to predict \code{y}.
+#'
+#'
+#' @return Returns an object of class JIVEpred. The function \code{summary}
+#' (i.e. \code{\link{summary.JIVEpred}}) can be used to summarize the model results, including a
+#' variance table and testing the significance of the joint and individual components.
+#'
+#' An object of class "JIVEpred" is a list containing the following components.
+#'  \item{jive.fit}{A list of class "jive" containing the JIVE output. See the
+#'  \code{jive} function from the r.jive R package for details about this object.}
+#'  \item{mod.fit}{A list of class "glm" containing the GLM output. See the
+#'  \code{glm} function from the stats R package for details about this object.}
+#'  \item{data.matrix}{The data matrix that was used when fitting the GLM. The first column
+#'  is the centered and scaled outcome, if applicable, and the remaining columns are the joint
+#'  and individual score matrices.}
+#'  \item{family}{A string stating which family was used when fitting the GLM}
 #' @export
+#'
+#' @seealso \code{\link{predict.JIVEpred}}  \code{\link{summary.JIVEpred}}
 #'
 #' @examples
 #' train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
@@ -101,17 +139,27 @@ JIVE.pred <- function(X, Y, family="gaussian",
 }
 
 
-
-#' Prediction with JIVE.predict model
+#' Prediction for JIVE-predict
 #'
-#' @param object Fitted JIVE.predict model
-#' @param newdata A list of two or more linked data matrices. Each matrix must
-#' have the same number of columns which is assumed to be common.
-#' @param center A boolean indicating whether or not newdata needs to be centered.
-#' @param scale A boolean indicating whether or not newdata needs to be scaled.
+#' Predicted values based on the an JIVE-predict model.
+#'
+#' @param object An object of class "JIVEpred", usually a fitted JIVE-predict model.
+#' @param newdata A list of matrices representing the new X datasets.
 #' @param ... further arguments passed to or from other methods.
 #'
-#' @return Predictions for Y
+#' @details \code{predict.JIVEpred} calculates predicted values for \code{newdata}
+#' based on the fitted model. The function first calculates the joint and
+#' individual score matrices for \code{newdata} treating the loading matrices from
+#' the initial JIVE model as fixed.
+#' Once the new score matrices are obtained, the GLM prediction will be
+#' evaluated using the new scores as the data matrix.
+#'
+#' @return A list of the following components is returned:
+#'  \item{Ypred}{The fitted Y values.}
+#'  \item{Ynat}{The fitted values of Y's natural parameter space.}
+#'  \item{joint.scores}{A matrix capturing the the joint scores of newdata.}
+#'  \item{indiv.scores}{A list containing matrices that capture the individual scores of newdata.}
+#'  \item{error}{The error value at which the model converged.}
 #' @export
 #'
 #' @examples
@@ -120,8 +168,9 @@ JIVE.pred <- function(X, Y, family="gaussian",
 #' test.x <- list(matrix(rnorm(600), ncol=40),matrix(rnorm(400), ncol=40))
 #' train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankI=c(1,1))
 #' test.fit <- predict(train.fit, test.x)
-predict.JIVEpred <- function(object, newdata, center=F, scale=F, ...){
-
+predict.JIVEpred <- function(object, newdata, ...){
+  center=F
+  scale=F
   n <- c()
   for (i in 1:length(newdata)) {
     n[i] <- nrow(newdata[[i]]) * ncol(newdata[[i]])
@@ -164,40 +213,24 @@ predict.JIVEpred <- function(object, newdata, center=F, scale=F, ...){
 }
 
 
-
-#' Print.JIVEpred
+#' Summarizing JIVE-predict Model Fits
 #'
-#' @param x a fitted JIVE.predict model
-#' @param ... further arguments passed to or from other methods
+#' Summary methods for an JIVE-predict model of class "JIVEpred".
 #'
-#' @return
-#' @export
-print.JIVEpred <- function(x, ...) {
-  k <- length(x$jive.fit$data)
-  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
-                          Rank = c(x$jive.fit$rankJ, x$jive.fit$rankA))
-
-   cat("Ranks: \n")
-    print(tbl_ranks)
-   cat("\n Model Fit: \n")
-   print(x$mod.fit)
-}
-
-
-#' Summary JIVE.Predict
+#' @param object An object of class "JIVEpred", usually a fitted JIVE-predict model.
 #'
-#' Display summary data of an JIVE.predict model
+#'#' @details Both the \code{print} and the \code{summary} functions
+#' give summary results for a fitted JIVE-predict model.
 #'
-#' @param object A fitted JIVE.predict model
-#' @param ... further arguments passed to or from other methods
-#'
-#' @details This function gives summary results from
-#' JIVE.predict. Amount of variance explained
+#' For the \code{summary} function, amount of variance explained
 #' is expressed in terms of the standardized Frobenious
 #' norm. Partial R-squared values are calculated for the
 #' joint and individual components. If rank=1, a z-statistic
 #' is calculated to determine the p-value. If rank>1, an F-statistic
 #' is calculated.
+#'
+#' For the \code{print} function, the output displays the \code{print.glm}
+#' result for the fitted GLM model.
 #'
 #' @return Summary measures
 #' @export
@@ -296,3 +329,20 @@ summary.JIVEpred <- function(object, ...){
               pred.model=tbl,
               Model=summary(object$mod.fit)))
 }
+
+
+#' @describeIn summary.JIVEpred
+#'
+#' @param x a fitted JIVEpred model.
+#' @param ... further arguments passed to or from other methods.
+print.JIVEpred <- function(x, ...) {
+  k <- length(x$jive.fit$data)
+  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
+                          Rank = c(x$jive.fit$rankJ, x$jive.fit$rankA))
+
+  cat("Ranks: \n")
+  print(tbl_ranks)
+  cat("\n Model Fit: \n")
+  print(x$mod.fit)
+}
+

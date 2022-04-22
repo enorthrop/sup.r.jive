@@ -1,0 +1,43 @@
+\documentclass[a4paper]{book}
+\usepackage[times,inconsolata,hyper]{Rd}
+\usepackage{makeidx}
+\usepackage[utf8]{inputenc} % @SET ENCODING@
+% \usepackage{graphicx} % @USE GRAPHICX@
+\makeindex{}
+\begin{document}
+\chapter*{}
+\begin{center}
+{\textbf{\huge Package `sup.r.jive'}}
+\par\bigskip{\large \today}
+\end{center}
+\inputencoding{utf8}
+\ifthenelse{\boolean{Rd@use@hyper}}{\hypersetup{pdftitle = {sup.r.jive: Supervised JIVE Methods: JIVE Predict, sJIVE, and sesJIVE}}}{}\ifthenelse{\boolean{Rd@use@hyper}}{\hypersetup{pdfauthor = {Elise F. Palzer; Eric F. Lock; Sandra Safo}}}{}\begin{description}
+\raggedright{}
+\item[Type]\AsIs{Package}
+\item[Title]\AsIs{Supervised JIVE Methods: JIVE Predict, sJIVE, and sesJIVE}
+\item[Version]\AsIs{0.0.0.9000}
+\item[Description]\AsIs{Performs supervised extensions to Joint and Individual Variation Explained
+(JIVE) including JIVE predict, supervised JIVE (sJIVE), and sparse exponential
+family sJIVE (sesJIVE). Example data files and visualization functions are also included.
+Note that ``importFrom(foreach,''%dopar%``)''  needs to be constantly added to namespace.}
+\item[License]\AsIs{GPL (>= 3) + file LICENSE}
+\item[URL]\AsIs{}\url{https://github.com/enorthrop/sup.r.jive}\AsIs{}
+\item[Encoding]\AsIs{UTF-8}
+\item[LazyData]\AsIs{true}
+\item[RoxygenNote]\AsIs{7.1.2}
+\item[Suggests]\AsIs{knitr,
+rmarkdown,
+testthat (>= 3.0.0)}
+\item[Config/testthat/edition]\AsIs{3}
+\item[Imports]\AsIs{stats,
+r.jive,
+withr,
+doParallel,
+foreach,
+gplots,
+ggplot2,
+gridExtra}
+\item[VignetteBuilder]\AsIs{knitr}
+\item[Depends]\AsIs{R (>= 2.10)}
+\end{description}
+\Rdcontents{\R{} topics documented:}

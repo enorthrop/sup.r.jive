@@ -36,6 +36,6 @@ evaluated using the new scores as the data matrix.
 train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
 train.y <- rnorm(20)
 test.x <- list(matrix(rnorm(600), ncol=40),matrix(rnorm(400), ncol=40))
-train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankI=c(1,1))
+train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankA=c(1,1))
 test.fit <- predict(train.fit, test.x)
 }

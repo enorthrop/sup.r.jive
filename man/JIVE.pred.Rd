@@ -9,7 +9,7 @@ JIVE.pred(
   Y,
   family = "gaussian",
   rankJ = NULL,
-  rankI = NULL,
+  rankA = NULL,
   center = F,
   scale = F,
   orthIndiv = F,
@@ -31,7 +31,7 @@ are "gaussian", "binomial", and "poisson". Model is fit using GLM.}
 \item{rankJ}{An integer specifying the joint rank of the data.
 If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.}
 
-\item{rankI}{A vector specifying the individual ranks of the data.
+\item{rankA}{vector specifying the individual ranks of the data.
 If \code{rankA=NULL}, ranks will be determined by the \code{method} option.}
 
 \item{center}{A boolean indicating whether or not X should be centered. Default is FALSE.}

@@ -9,8 +9,11 @@
   newdata,
   threshold = 1e-05,
   max.iter = 2000,
+  irls_iter = 1,
   show.error = F,
-  show.message = T
+  show.message = T,
+  train = F,
+  ...
 )
 }
 \arguments{
@@ -21,6 +24,10 @@
 \item{threshold}{threshold for convergence}
 
 \item{max.iter}{max iterations}
+
+\item{irls_iter}{the number of iterations of the IRLS algorithm that should
+be performed for each parameter update within the algorithm. If NULL, will
+run until convergence.}
 
 \item{show.error}{show error during iterations}
 

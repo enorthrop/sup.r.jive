@@ -23,11 +23,13 @@ Imports:
     stats,
     r.jive,
     withr,
+    Matrix,
     doParallel, 
-    foreach,
+    glmnet,
     gplots,
     ggplot2,
     gridExtra
 VignetteBuilder: knitr
 Depends: 
+    foreach,
     R (>= 2.10)

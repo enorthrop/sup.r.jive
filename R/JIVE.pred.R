@@ -15,7 +15,7 @@
 #' to the number of columns in each view of \code{X}.
 #' @param rankJ An integer specifying the joint rank of the data.
 #' If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.
-#' @param rankI A vector specifying the individual ranks of the data.
+#' @param rankA vector specifying the individual ranks of the data.
 #' If \code{rankA=NULL}, ranks will be determined by the \code{method} option.
 #' @param family A string specifying the type of prediction model to fit. Options
 #' are "gaussian", "binomial", and "poisson". Model is fit using GLM.
@@ -70,14 +70,14 @@
 #' train.y <- rnorm(20)
 #' train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankI=c(1,1))
 JIVE.pred <- function(X, Y, family="gaussian",
-                      rankJ=NULL, rankI=NULL,
+                      rankJ=NULL, rankA=NULL,
                       center=F, scale=F, orthIndiv=F,
                       method="perm", maxiter=1000,
                       showProgress=T){
   #family=c("gaussian", "binomial", "poisson")
 
   #Fit JIVE
-  if(is.null(rankJ)|is.null(rankI)){
+  if(is.null(rankJ)|is.null(rankA)){
     time1 <- Sys.time()
     fit <- r.jive::jive(X, center=center, scale=scale,orthIndiv = orthIndiv,
                         method=method, maxiter=maxiter,showProgress=showProgress)
@@ -85,7 +85,7 @@ JIVE.pred <- function(X, Y, family="gaussian",
   }else{
     time1 <- Sys.time()
     fit <- r.jive::jive(X, center=center, scale=scale,orthIndiv = orthIndiv, rankJ = rankJ,
-                        rankA = rankI, method = "given",  maxiter=maxiter,
+                        rankA = rankA, method = "given",  maxiter=maxiter,
                         showProgress=showProgress)
     time2 <- Sys.time()
   }
@@ -166,7 +166,7 @@ JIVE.pred <- function(X, Y, family="gaussian",
 #' train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
 #' train.y <- rnorm(20)
 #' test.x <- list(matrix(rnorm(600), ncol=40),matrix(rnorm(400), ncol=40))
-#' train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankI=c(1,1))
+#' train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankA=c(1,1))
 #' test.fit <- predict(train.fit, test.x)
 predict.JIVEpred <- function(object, newdata, ...){
   center=F
@@ -219,7 +219,7 @@ predict.JIVEpred <- function(object, newdata, ...){
 #'
 #' @param object An object of class "JIVEpred", usually a fitted JIVE-predict model.
 #'
-#'#' @details Both the \code{print} and the \code{summary} functions
+#' @details Both the \code{print} and the \code{summary} functions
 #' give summary results for a fitted JIVE-predict model.
 #'
 #' For the \code{summary} function, amount of variance explained

@@ -278,6 +278,8 @@ predict.sJIVE <- function(object, newdata, threshold = 0.001, max.iter=2000, ...
               error = error.new))
 }
 
+
+
 #' Summarizing sJIVE Model Fits
 #'
 #' Summary methods for an sJIVE model of class "sJIVE".
@@ -390,6 +392,7 @@ summary.sJIVE <- function(object, ...){
 #'
 #' @param x a fitted sJIVE model.
 #' @param ... further arguments passed to or from other methods.
+#' @export
 print.sJIVE <- function(x, ...) {
   k <- length(x$data$X)
   tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
@@ -843,10 +846,10 @@ sJIVE.pred.err <- function(X.tilde, U, Sj, W, Si, k){
   return(error)
 }
 
-sJIVE.eta <- function(e, Y2=Y, X2=X, fold2=fold, max.iter2=max.iter,
-                      rankJ2=rankJ, rankA2=rankA,
-                      center.scale2=center.scale,
-                      reduce.dim2=reduce.dim){
+sJIVE.eta <- function(e, Y2, X2, fold2, max.iter2,
+                      rankJ2, rankA2,
+                      center.scale2,
+                      reduce.dim2){
     err.fold <- NA
     for(i in 1:5){
       #Get train/test sets

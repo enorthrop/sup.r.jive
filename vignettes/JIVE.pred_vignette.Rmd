@@ -43,7 +43,7 @@ Let's say that we want to uncover the joint structure between the data sources a
 
 
 ```{r}
-fit <- JIVE.pred(X=SimData.norm$X, Y=SimData.norm$Y, rankJ=1, rankI = c(1,1),
+fit <- JIVE.pred(X=SimData.norm$X, Y=SimData.norm$Y, rankJ=1, rankA = c(1,1),
                  family="gaussian")
 
 ```
@@ -121,7 +121,7 @@ Let's say that we want to uncover the joint structure between the data sources a
 
 
 ```{r}
-fit <- JIVE.pred(X=SimData.bin$X, Y=SimData.bin$Y, rankJ=1, rankI = c(1,1),
+fit <- JIVE.pred(X=SimData.bin$X, Y=SimData.bin$Y, rankJ=1, rankA = c(1,1),
                  family="binomial")
 
 ```

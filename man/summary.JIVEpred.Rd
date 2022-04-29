@@ -10,20 +10,7 @@
 \method{print}{JIVEpred}(x, ...)
 }
 \arguments{
-\item{object}{An object of class "JIVEpred", usually a fitted JIVE-predict model.
-
-#' @details Both the \code{print} and the \code{summary} functions
-give summary results for a fitted JIVE-predict model.
-
-For the \code{summary} function, amount of variance explained
-is expressed in terms of the standardized Frobenious
-norm. Partial R-squared values are calculated for the
-joint and individual components. If rank=1, a z-statistic
-is calculated to determine the p-value. If rank>1, an F-statistic
-is calculated.
-
-For the \code{print} function, the output displays the \code{print.glm}
-result for the fitted GLM model.}
+\item{object}{An object of class "JIVEpred", usually a fitted JIVE-predict model.}
 
 \item{...}{further arguments passed to or from other methods.}
 
@@ -34,6 +21,20 @@ Summary measures
 }
 \description{
 Summary methods for an JIVE-predict model of class "JIVEpred".
+}
+\details{
+Both the \code{print} and the \code{summary} functions
+give summary results for a fitted JIVE-predict model.
+
+For the \code{summary} function, amount of variance explained
+is expressed in terms of the standardized Frobenious
+norm. Partial R-squared values are calculated for the
+joint and individual components. If rank=1, a z-statistic
+is calculated to determine the p-value. If rank>1, an F-statistic
+is calculated.
+
+For the \code{print} function, the output displays the \code{print.glm}
+result for the fitted GLM model.
 }
 \section{Functions}{
 \itemize{

@@ -1,0 +1,120 @@
+---
+title: "sesJIVE Example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{sJIVE Example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette illustrates an example on how to use the `sup.r.jive` package to run sparse exponential family supervised Joint and Variation Explained (sesJIVE). sesJIVE was developed by Palzer et al. and is a generalized multi-source supervised method that can simultanesously identify joint and individual components among the data sources, and build a prediction model. sesJIVE can enforce sparsity on the decomposition and account for continuous, binary, or count data.
+
+Here, we avoid methodological details and focus on the functionality of the `sup.r.jive` package.
+
+## Loading the data
+
+If you haven't used this package before, you'll have to install it first. You can install the development version of `sup.r.jive` from [GitHub](https://github.com/) with:
+
+```{r}
+# install.packages("devtools")
+#devtools::install_github("enorthrop/sup.r.jive")
+library(sup.r.jive)
+```
+
+
+For this example, we will use the `SimData.norm` data file contained in this package. After loading the data, we can see that it contains 2 data matrices saved as a list (`X`) and contains a continuous outcome vector (`Y`). Note that both data matrices have 40 rows or predictors, and have 30 columns or observations. The number of rows need not match across sources, but each source and the outcome must be collected on the same group of individuals.
+
+```{r}
+data("SimData.norm")
+str(SimData.norm)
+
+```
+
+## Running sesJIVE
+
+Let's say that we want to uncover the joint structure between the data sources, each source's individual structure, as well as predict the outcome `Y`. We can calculate this by running the `sesJIVE()` function. The ranks of the joint and individual components can be calculated by the permutation approach proposed in JIVE by Lock et al. (2013), but in this example, we will assume that we already know the ranks to be 1. The weight parameter and lambda were calculated by 5-fold cross-validation, choosing the value that minimized the deviance of the test set.
+
+
+```{r, eval=F}
+#Note that the weights were already found to be 0.1 and lambda = 0.001. In practice, 
+#      do not specify wts or lambda.
+fit <- sesJIVE(X=SimData.norm$X, Y=SimData.norm$Y, rankJ=1, rankA = c(1,1),
+               sparse=F, wts=0.1)
+
+fit.sparse <- sesJIVE(X=SimData.norm$X, Y=SimData.norm$Y, rankJ=1, rankA = c(1,1),
+               sparse=T, wts=0.1)
+
+```
+
+The output shows the final ranks for the joint and individual components as well as the tuning parameter and the number of iterations it took to reach convergence. By printing the model output, we can find similar information.
+
+```{r, eval=F}
+fit
+```
+Or if we want a more detailed summary, we can do the following:
+
+```{r, eval=F}
+summary(fit)
+```
+
+If we want to make predictions, we can do so using the predict function. Note that the Y predictions are for the centered and scaled outcome. `fit$data` contains the centered and scaled data, which should be used when assessing prediction accuracy of the method.
+
+
+```{r, eval=F}
+
+fit.pred <- predict(fit, newdata = SimData.norm$X)
+#MSE
+sum((fit$data$Y-fit.pred$Ypred)^2)/length(fit$data$Y)
+```
+
+
+## Visualization and interpretation
+
+The `sup.r.jive` package contains 3 visualization tools that help display the results. Each of the 3 functions will work for an object of class JIVE.pred, sJIVE, or sesJIVE as its input, but in this vignette, we will briefly discuss each function using the fitted sJIVE model from above.
+
+### plotHeatmap()
+
+This function displays a heatmap of the contribution of the joint and individual components. Note that there is not a heatmap for the residual error of the fitted model. the `order_by` option in this function allows the user to order the column by the original data (default), the joint component (`order_by=1`), or the i'th individual component (`order_by=i`).
+
+```{r, eval=F}
+plotHeatmap(fit) 
+
+plotHeatmap(fit, order_by = 0, ylab="Outcome", xlab=c("Data1", "Data2"))
+```
+
+### plotVarExplained()
+
+This function creates a series of barplots to display the percent of variance explained by the joint and individual components. The `col` option allows you to choose the color palette in the graphs. The values graphed in the barplots can be found by the `\$variance` output from the `summary()` function.
+
+```{r, eval=F}
+plotVarExplained(fit, col=c("grey20", "grey43", "grey65"))
+
+```
+
+
+### plotFittedValues()
+
+This function displays two diagnostic plots for the fitted $Y$ values. The first plot compares the residuals to the fitted values, and the second plot is a Q-Q plot to look at the quantiles.
+
+```{r, eval=F}
+plotFittedValues(fit)
+
+```
+
+
+## References
+
+Palzer, EF, C Wendt, R Bowler, CP Hersh, SE Safo, and EF Lock. 2021. "sJIVE: Supervised Joint and Individual Variation Explained." Pre-print on arXiv.
+
+Lock, EF, KA Hoadley, JS Marron, and AB Nobel. 2013. “Joint and Individual Variation Explained (JIVE) for Integrated Analysis of Multiple Data Types.” \textit{The Annals of Applied Statistics} 7 (1): 523–42.
+
+
+
+

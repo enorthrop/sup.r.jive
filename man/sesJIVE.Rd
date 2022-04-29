@@ -18,10 +18,13 @@ sesJIVE(
   show.error = F,
   sparse = F,
   lambda = seq(0.15, 0.35, 0.02),
+  orthogonal = NULL,
   intercept = T,
+  show.lambda = F,
   method.lambda = "CV",
-  method.wts = "permute",
-  initial = "uninformative"
+  var.none = NULL,
+  initial = "uninformative",
+  irls_iter = 1
 )
 }
 \arguments{
@@ -70,18 +73,22 @@ selected in "method.lambda".}
 \item{intercept}{A boolean indicating whether or not there should be an
 intercept term in the results.}
 
+\item{show.lambda}{A boolean indicating if an intermediate table should be printed
+that shows the predictive performance of each candidate lambda value.}
+
 \item{method.lambda}{Either "CV" or "BIC" specifying if the optimal lambda
 should be selected by cross-validation or by the Bayesian Information Criterion.
 Default is "CV".}
 
-\item{method.wts}{A string with which rank selection method to use.
-Possible options are "permute" which uses JIVE's permutation method,
-or "CV" which uses 5-fold forward CV to determine ranks.}
-
 \item{initial}{Either "uninformative", "svd", or "jive" indicating how to
 generate the initial values for the algorithm. See description for more details.}
 
-\item{center.scale}{A boolean for whether or not to center and scale.}
+\item{irls_iter}{The number of iterations the IRLS algorithm should run to update
+each parameter in the algorithm. If NULL, will run until convergence.}
+
+\item{method.wts}{A string with which rank selection method to use.
+Possible options are "permute" which uses JIVE's permutation method,
+or "CV" which uses 5-fold forward CV to determine ranks.}
 }
 \value{
 \code{sesJIVE} returns an object of class "sesJIVE". The function \code{summary}

@@ -10,7 +10,7 @@ plotVarExplained(result, col, ...)
 
 \method{plotVarExplained}{JIVEpred}(result, col = c("grey20", "grey43", "grey65"), ...)
 
-\method{plotVarExplained}{sJIVE}(result, col = c("grey20", "grey43", "grey65", ...))
+\method{plotVarExplained}{sJIVE}(result, col = c("grey20", "grey43", "grey65"), ...)
 }
 \arguments{
 \item{result}{An object of class "sJIVE", "JIVEpred", "sesJIVE".}

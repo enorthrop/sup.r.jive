@@ -17,7 +17,7 @@ sesJIVE(
   numCores = 1,
   show.error = F,
   sparse = F,
-  lambda = seq(0.15, 0.35, 0.02),
+  lambda = c(1e-04, 0.001, 0.005, 0.01, 0.025, 0.05, 1),
   orthogonal = NULL,
   intercept = T,
   show.lambda = F,

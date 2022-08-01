@@ -47,12 +47,7 @@ fit <- sJIVE(X=SimData.norm$X, Y=SimData.norm$Y, rankJ=1, rankA = c(1,1))
 
 ```
 
-The output shows the final ranks for the joint and individual components as well as the tuning parameter and the number of iterations it took to reach convergence. By printing the model output, we can find similar information.
-
-```{r}
-fit
-```
-Or if we want a more detailed summary, we can do the following:
+The output shows the final ranks for the joint and individual components as well as the tuning parameter and the number of iterations it took to reach convergence. By printing the summary model output, we can find similar information.
 
 ```{r}
 summary(fit)

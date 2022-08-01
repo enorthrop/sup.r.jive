@@ -2,7 +2,7 @@
 title: "sesJIVE Example"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{sJIVE Example}
+  %\VignetteIndexEntry{sesJIVE Example}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---

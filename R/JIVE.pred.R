@@ -68,7 +68,7 @@
 #' @examples
 #' train.x <- list(matrix(rnorm(300), ncol=20), matrix(rnorm(200), ncol=20))
 #' train.y <- rnorm(20)
-#' train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankI=c(1,1))
+#' train.fit <- JIVE.pred(X=train.x,Y=train.y,rankJ=1,rankA=c(1,1))
 JIVE.pred <- function(X, Y, family="gaussian",
                       rankJ=NULL, rankA=NULL,
                       center=F, scale=F, orthIndiv=F,

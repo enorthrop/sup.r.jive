@@ -247,7 +247,7 @@ plotHeatmap.sJIVE <- function(result, order_by=-1,
 #' @examples
 #' data(SimData.norm)
 #' fit <- JIVE.pred(X=SimData.norm$X,Y=SimData.norm$Y,
-#'                   rankJ=1,rankI=c(1,1))
+#'                   rankJ=1,rankA=c(1,1))
 #' plotHeatmap(fit,  ylab="outcome",
 #'         xlab=c("Metabolomic", "Proteomic"), ycex=0.9)
 #'

@@ -1,7 +1,3 @@
-#sesJIVE and sesJIVE.predict functions
-#Using sesJIVE_Functions_V16.R Updated on 4/27/2022
-
-`%dopar%` <- foreach::`%dopar%`
 
 #' Sparse Exponential Family Supervised JIVE (sesJIVE)
 #'
@@ -40,23 +36,14 @@
 #' @param sparse A boolean indication whether or not to enforce sparsity in the loadings.
 #' See description below for more information.
 #' @param lambda A value or vector indicating what values of lambda to consider. If
-#' a vector of values, the optimal lambda will be chosen based on the method
-#' selected in "method.lambda".
+#' a vector of values, the optimal lambda will be chosen based on CV.
 #' @param intercept A boolean indicating whether or not there should be an
 #' intercept term in the results.
-#' @param method.lambda Either "CV" or "BIC" specifying if the optimal lambda
-#' should be selected by cross-validation or by the Bayesian Information Criterion.
-#' Default is "CV".
-#' @param method.wts A string with which rank selection method to use.
-#' Possible options are "permute" which uses JIVE's permutation method,
-#' or "CV" which uses 5-fold forward CV to determine ranks.
-#' @param initial Either "uninformative", "svd", or "jive" indicating how to
+#' @param initial Either "uninformative", "svd", "jive", or "no sparsity" indicating how to
 #' generate the initial values for the algorithm. See description for more details.
 #' @param show.lambda A boolean indicating if an intermediate table should be printed
 #' that shows the predictive performance of each candidate lambda value.
-#' @param irls_iter The number of iterations the IRLS algorithm should run to update
-#' each parameter in the algorithm. If NULL, will run until convergence.
-#
+#'
 #' @details The method requires the data to be centered and scaled. This
 #' can be done prior to running the method or by specifying center.scale=T.
 #' The rank of the joint and individual components,
@@ -109,238 +96,235 @@
 #' @seealso \code{\link{predict.sesJIVE}}  \code{\link{summary.sesJIVE}}
 #' @export
 sesJIVE <- function(X, Y, rankJ = 1, rankA=rep(1,length(X)),wts=NULL, max.iter=1000,
-                      threshold = 0.001, family.x = rep("gaussian", length(X)),
-                      family.y="gaussian", numCores=1, show.error=F, sparse=F,
-                      lambda= c(0.0001, 0.001, 0.005, 0.01, 0.025, 0.05, 1),
-                      orthogonal=NULL, intercept=T,
-                      show.lambda=F, method.lambda="CV", var.none=NULL,
-                      initial="uninformative", irls_iter=1){
-    ############################################################################
-    #X is a list of 2 or more datasets, each with dimensions p_i by n
-    #Y is continuous vector length n
-    #wts is a tuning parameter between 0 and 1. When eta=NULL, a gridsearch
-    #   is conducted to tune eta. You can specify a value of eta to use,
-    #   or supply a vector of eta values for esJIVE to consider.
-    #rankJ is a value for the low-rank of the joint component
-    #rankA is a vector of the ranks for each X dataset.
-    #method.lambda = CV or BIC
-    ############################################################################
+                    threshold = 0.001, family.x = rep("gaussian", length(X)),
+                    family.y="gaussian", numCores=1, show.error=F, sparse=F,
+                    lambda=NULL,  intercept=T, show.lambda=F,
+                    initial="uninformative"){
+  ############################################################################
+  #X is a list of 2 or more datasets, each with dimensions p_i by n
+  #Y is continuous vector length n
+  #wts is a tuning parameter between 0 and 1. When wts=NULL, a gridsearch
+  #   is conducted to tune eta. You can specify a value of eta to use,
+  #   or supply a vector of eta values for esJIVE to consider.
+  #rankJ is a value for the low-rank of the joint component
+  #rankA is a vector of the ranks for each X dataset.
+  ############################################################################
 
-    k <- length(X)
-    n <- ncol(X[[1]])
-    if(length(Y) != n){stop("Number of columns differ between datasets")}
+  k <- length(X)
+  n <- ncol(X[[1]])
+  if(length(Y) != n){stop("Number of columns differ between datasets")}
 
-    if(is.null(orthogonal)){ #If Sparse model, don't enforce orthogonality
-      orthogonal <- (sparse == F)
-    }
+  #If Sparse model, don't enforce orthogonality
+  orthogonal <- (sparse == F)
 
-    if(is.null(wts)){
-      wt.vec=c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99)
-    }else{
-      wt.vec=wts
-    }
-    lambda.dat <- NULL
 
-    # Choose the best Weights
-    if(length(wt.vec)>1){
-      #get cv folds
-      n <- length(Y)
-      fold <- list()
-      cutoff <- round(stats::quantile(1:n, c(.2,.4,.6,.8)))
-      fold[[1]] <- 1:cutoff[1]
-      fold[[2]] <- (cutoff[1]+1):cutoff[2]
-      fold[[3]] <- (cutoff[2]+1):cutoff[3]
-      fold[[4]] <- (cutoff[3]+1):cutoff[4]
-      fold[[5]] <- (cutoff[4]+1):n
+  if(is.null(wts)){
+    wt.vec=c(0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99)
+  }else{
+    wt.vec=wts
+  }
+  if(is.null(lambda)){
+    lambda <- c(0, 0.0001, 0.001, 0.01, 0.1, 1)
+  }
+  lambda.dat <- NULL
 
-      cat("Choosing Tuning Parameter: Weights \n")
+  if(length(wt.vec)>1){
+    keep.me.wt <- 0.5
+  }else{
+    keep.me.wt <- wt.vec
+  }
+
+  # Choose the best lambda
+  if(sparse & length(lambda)>1){
+    #get cv folds
+    n <- length(Y)
+    fold <- list()
+    cutoff <- round(stats::quantile(1:n, c(.2,.4,.6,.8)))
+    fold[[1]] <- 1:cutoff[1]
+    fold[[2]] <- (cutoff[1]+1):cutoff[2]
+    fold[[3]] <- (cutoff[2]+1):cutoff[3]
+    fold[[4]] <- (cutoff[3]+1):cutoff[4]
+    fold[[5]] <- (cutoff[4]+1):n
+
+    cat("Choosing Tuning Parameter: Lambda \n")
+
+    bad.range <- T
+    max.lambda <- length(Y)+sum(unlist(lapply(X, function(y) length(as.vector(y)))))
+    lambda.vec <- unique(c(0,lambda, 1))
+    good.lambdas <- NULL
+    while(bad.range==T){
+      #with sparsity -- using variance estimate
       doParallel::registerDoParallel(cores=numCores)
-      test.best <- foreach::foreach(e=wt.vec, .combine=rbind) %dopar% {
-        find.wts(e=e, YY=Y, XX=X,
-                 max.iters=max.iter,
-                 folds = fold,
-                 family.xx = family.x, initials = initial,
-                 family.yy = family.y, intercepts=intercept,
-                 rankJJ=rankJ, rankAA=rankA)
+      test.best2 <- foreach::foreach(lambda=lambda.vec, .combine=rbind) %dopar% {
+        find.lambda(lambda=lambda, YY=Y, XX=X,
+                    max.iters=max.iter,
+                    folds = fold,initials = "uninformative",
+                    weights=c(rep(keep.me.wt,length(X)), 1-keep.me.wt),
+                    family.xx = family.x, intercepts=intercept,
+                    family.yy = family.y,
+                    rankJJ=rankJ, rankAA=rankA)
       }
-      #if(show.lambda){print(test.best)}
       doParallel::registerDoParallel(cores=1)
-      best.wt <- which(test.best[,2] == min(test.best[,2], na.rm=T))
-      best.wt <- best.wt[1]
-      cat(paste0("Using wts= ", test.best[best.wt,1], "\n"))
-    }else{
-      test.best <- t(as.matrix(rep(wt.vec,2)))
-      best.wt <- 1
-    }
+      test.best2 <- as.data.frame(test.best2)
+      names(test.best2) <-  c("lambda", "val", "bad_lambda_ind", "pct_sparsity")
+      row.names(test.best2) <- c()
+      if(length(is.na(test.best2$pct_sparsity))>0){
+        test.best2$bad_lambda_ind[which(is.na(test.best2$pct_sparsity))] <- -2
+      }
+      if(show.lambda){print(test.best2)}
 
-    # Choose the best lambda
-    if(sparse & length(lambda)>1){
-      if(method.lambda=="CV"){
-        #get cv folds
-        n <- length(Y)
-        fold <- list()
-        cutoff <- round(stats::quantile(1:n, c(.2,.4,.6,.8)))
-        fold[[1]] <- 1:cutoff[1]
-        fold[[2]] <- (cutoff[1]+1):cutoff[2]
-        fold[[3]] <- (cutoff[2]+1):cutoff[3]
-        fold[[4]] <- (cutoff[3]+1):cutoff[4]
-        fold[[5]] <- (cutoff[4]+1):n
-
-        cat("Choosing Tuning Parameter: Lambda \n")
-
-        #no sparsity -- for variance estimate
-        if(is.null(var.none)){ #find.lambda function doesn't work with var0 yet...
-          test.zero <- find.lambda(lambda=0, YY=Y, XX=X,
-                                   max.iters=max.iter,
-                                   folds = fold,initials = initial,
-                                   weights=c(rep(test.best[best.wt,1],length(X)), 1-test.best[best.wt,1]),
-                                   family.xx = family.x, intercepts=intercept,
-                                   family.yy = family.y, ortho=orthogonal,
-                                   rankJJ=rankJ, rankAA=rankA)
-
-          var.none <- test.zero[(length(test.zero)-k):length(test.zero) ]
-        }
-        #with sparsity -- using variance estimate
-        test.best2 <- foreach::foreach(lambda=lambda, .combine=rbind) %dopar% {
-          #for(i in 1:length(lambda)){
-          find.lambda(lambda=lambda, YY=Y, XX=X,
-                      max.iters=max.iter,
-                      folds = fold,initials = initial,
-                      weights=c(rep(test.best[best.wt,1],length(X)), 1-test.best[best.wt,1]),
-                      family.xx = family.x, intercepts=intercept,
-                      family.yy = family.y, ortho=orthogonal,
-                      rankJJ=rankJ, rankAA=rankA, var0= var.none)
-          #print(paste0("Made it past ", i))
-          #}
-        }
-        doParallel::registerDoParallel(cores=1)
-        if(show.lambda){print(test.best2)}
-        lambda.dat <- test.best2
-        temp <- which(test.best2[,2] == min(test.best2[,2], na.rm=T))
-        #temp2 <- which(test.best[,2] < test.best[temp,2]+test.best[temp,3])
-        best.lambda <- max(test.best2[temp,1])
-        cat(paste0("Using lambda= ", best.lambda, "\n"))
-
+      if(length(which(abs(test.best2$bad_lambda_ind) < 0.5))>3){
+        bad.range=F
       }else{
-        cat("Choosing Tuning Parameter: Lambda \n")
-        #no sparsity -- for variance estimate
-        if(is.null(var.none)){
-          test.zero <- find.lambda(lambda=0, YY=Y, XX=X,
-                                   max.iters=max.iter,initials = initial,
-                                   folds = fold, method=method.lambda,
-                                   weights=c(rep(test.best[best.wt,1],length(X)), 1-test.best[best.wt,1]),
-                                   family.xx = family.x, intercepts=intercept,
-                                   family.yy = family.y, ortho=orthogonal,
-                                   rankJJ=rankJ, rankAA=rankA, var0= var.none)
-
-          var.none <- test.zero[(length(test.zero)-k):length(test.zero) ]
+        if(length(which(abs(test.best2$bad_lambda_ind) < 0.5))>0){
+          good.lambdas <- rbind(good.lambdas,
+                                test.best2[which(abs(test.best2$bad_lambda_ind) < 0.5),])
         }
-        #with sparsity -- using variance estimate
-        doParallel::registerDoParallel(cores=numCores)
-        test.best2 <- foreach::foreach(lambda=lambda, .combine=rbind) %dopar% {
-          #for(i in 1:length(lambda)){
-          find.lambda(lambda=lambda, YY=Y, XX=X,
-                      max.iters=max.iter,
-                      method=method.lambda,initials = initial,
-                      weights=c(rep(test.best[best.wt,1],length(X)), 1-test.best[best.wt,1]),
-                      family.xx = family.x, intercepts=intercept,
-                      family.yy = family.y, ortho=orthogonal,
-                      rankJJ=rankJ, rankAA=rankA, var0= var.none)
-          #print(paste0("Made it past ", i))
-          #}
-        }
-        doParallel::registerDoParallel(cores=1)
-        if(show.lambda){print(test.best2)}
-        lambda.dat <- test.best2
-        temp <- which(test.best2[,2] == min(test.best2[,2], na.rm=T))
-        best.lambda <- max(test.best2[temp,1])
-        cat(paste0("Using lambda= ", best.lambda, "\n"))
+        too.small <- which(test.best2$bad_lambda_ind < -0.5)
+        too.big <- which(test.best2$bad_lambda_ind > 0.5)
+        start1 <- test.best2[max(too.small),1]
+        stop1 <- test.best2[min(too.big),1]
+        lambda.vec <- seq(start1, stop1, by=(stop1-start1)/9)#[2:7]
+        cat(paste0("Re-Tuning Parameter with lambda=c(", toString(lambda.vec), ") \n"))
       }
-    }else{
-      best.lambda <- lambda
-      if(sparse){var.none <- rep(1,k+1)}
     }
+    test.best2 <- rbind(good.lambdas, test.best2)
+    if(show.lambda){print(test.best2)}
+    good.obs <- which(abs(test.best2$bad_lambda_ind) < 0.5)
+    lambda.dat <- test.best2
+    temp <- which(test.best2[good.obs,2] == min(test.best2[good.obs,2], na.rm=T))
+    best.lambda <- max(test.best2[good.obs[temp],1])
+    cat(paste0("Using lambda= ", best.lambda, "\n"))
+  }else{
+    best.lambda <- lambda
+  }
 
-    cat("Estimating Loadings and Scores \n")
-    test.best <- sesJIVE.converge(X, Y,
-                                  max.iter=max.iter, threshold = threshold,
-                                  family.x = family.x,
-                                  family.y = family.y,
-                                  rankJ=rankJ, rankA=rankA,
-                                  weights=c(rep(test.best[best.wt,1],length(X)), 1-test.best[best.wt,1]),
-                                  show.message=T, show.error=show.error, var00=var.none,
-                                  irls_iter=irls_iter, intercept=intercept, sparse=sparse,
-                                  lambda=best.lambda, orthogonal=orthogonal,
-                                  initial=initial)
-    if(sparse){
-      cat("Re-estimating Scores \n")
-      test.best.pred <- stats::predict(test.best, X, show.error=show.error,
-                                        train=T)
+  # Choose the best Weights
+  if(length(wt.vec)>1){
+    #get cv folds
+    n <- length(Y)
+    fold <- list()
+    cutoff <- round(stats::quantile(1:n, c(.2,.4,.6,.8)))
+    fold[[1]] <- 1:cutoff[1]
+    fold[[2]] <- (cutoff[1]+1):cutoff[2]
+    fold[[3]] <- (cutoff[2]+1):cutoff[3]
+    fold[[4]] <- (cutoff[3]+1):cutoff[4]
+    fold[[5]] <- (cutoff[4]+1):n
 
-      x.mat <- cbind(matrix(Y, ncol=1), t(test.best.pred$Sj))
-      for(i in 1:k){ x.mat <- cbind(x.mat, t(test.best.pred$Si[[i]]))}
-      x.mat <- as.data.frame(x.mat)
-      names(x.mat) <- paste0("V", 1:ncol(x.mat))
-      fit <- stats::glm(V1 ~ ., data=x.mat, family = family.y)
-
-      #Combine results into final results
-      test.final <- test.best
-      test.final$S_J <- test.best.pred$Sj
-      test.final$S_I <- test.best.pred$Si
-      test.final$theta1 <- stats::coef(fit)[2:(1+rankJ)]
-      bad.obs <- which(is.na(test.final$theta1))
-      if(length(bad.obs)>0){test.final$theta1[bad.obs] <- 0}
-      obs <- 2+rankJ
-      for(i in 1:k){
-        test.final$theta2[[i]] <- stats::coef(fit)[obs:(obs-1+rankA[i])]
-        bad.obs <- which(is.na(test.final$theta2[[i]]))
-        if(length(bad.obs)>0){test.final$theta2[[i]][bad.obs] <- 0}
-        obs <- obs+rankA[i]
-      }
-      #Re-calculate natX and natY
-      int <- t(as.matrix(rep(1,ncol(test.final$natX[[1]]))))
-      thetaS <- 0; X.tilde <- NULL
-      for(i in 1:k){
-        X.tilde <- rbind(X.tilde, X)
-        t1 <- test.final$intercept[[i]] %*%  int
-        t2 <- test.final$U_I[[i]] %*% test.final$S_J
-        t3 <- test.final$W_I[[i]] %*% test.final$S_I[[i]]
-        test.final$natX[[i]] <- t1 + t2 + t3
-        thetaS <- thetaS + test.final$theta2[[i]] %*% test.final$S_I[[i]]
-      }
-      test.final$natY <- test.final$intercept[[k+1]] %*% int +
-        test.final$theta1 %*% test.final$S_J + thetaS
-      #Update Error
-      error.new <- get_loglik(test.final, X, Y, family.x, family.y)
-      test.final$error <- error.new$log_lik
-    }else{
-      test.final <- test.best
+    cat("Choosing Tuning Parameter: Weights \n")
+    doParallel::registerDoParallel(cores=numCores)
+    test.best <- NULL
+    test.best <- foreach::foreach(e=wt.vec, .combine=rbind) %dopar% {
+      try(find.wts(e=e, YY=Y, XX=X,
+                   max.iters=max.iter,
+                   folds = fold, sparse2=sparse,
+                   lambda2=best.lambda,
+                   family.xx = family.x, initials = initial,
+                   family.yy = family.y, intercepts=intercept,
+                   rankJJ=rankJ, rankAA=rankA), silent = T)
     }
+    if(show.lambda){print(test.best)}
+    doParallel::registerDoParallel(cores=1)
+    best.wt <- which(test.best[,2] == min(test.best[,2], na.rm=T))
+    best.wt <- best.wt[1]
+    keep.me.wt <- as.numeric(as.character(test.best[best.wt,1]))
+    cat(paste0("Using wts= ", keep.me.wt, "\n"))
+  }else{
+    test.best <- t(as.matrix(rep(wt.vec,2)))
+    best.wt <- 1
+    keep.me.wt <- as.numeric(as.character(wt.vec))
+  }
 
-    if(sparse & length(lambda)>1){
-      if(method.lambda=="CV"){
-        lambda.dat <- as.data.frame(lambda.dat[,1:3])
-        row.names(lambda.dat) <- c()
-        names(lambda.dat) <- c("lambda", "Test MSE", "SE")
-      }else if(method.lambda=="AIC"){
-        lambda.dat <- as.data.frame(lambda.dat[,1:2])
-        row.names(lambda.dat) <- c()
-        names(lambda.dat) <- c("lambda", "AIC")
-      }else if(method.lambda=="BIC"){
-        lambda.dat <- as.data.frame(lambda.dat[,1:2])
-        row.names(lambda.dat) <- c()
-        names(lambda.dat) <- c("lambda", "BIC")
 
-      }
-      test.final$lambda.dat <- lambda.dat
+  cat("Estimating Loadings and Scores \n")
+  if(initial=="no sparsity"){
+    test.first <- sesJIVE.converge(X, Y,
+                                   max.iter=500, threshold = threshold,
+                                   family.x = family.x,
+                                   family.y = family.y,
+                                   rankJ=rankJ, rankA=rankA,
+                                   weights=c(rep(keep.me.wt,length(X)), 1-keep.me.wt),
+                                   show.message=F, show.error=F,
+                                   intercept=intercept, sparse=F,
+                                   irls_iter=1, lambda=best.lambda,
+                                   initial="uninformative",
+                                   sesJIVE.fit=NULL)
+  }else{test.first=NULL}
+
+  test.best <- sesJIVE.converge(X, Y,
+                                max.iter=max.iter, threshold = threshold,
+                                family.x = family.x,
+                                family.y = family.y,
+                                rankJ=rankJ, rankA=rankA,
+                                weights=c(rep(keep.me.wt,length(X)), 1-keep.me.wt),
+                                show.message=T, show.error=show.error,
+                                irls_iter=1, intercept=intercept, sparse=sparse,
+                                lambda=best.lambda,
+                                initial=initial,
+                                sesJIVE.fit=test.first)
+
+  if(test.best$bad.lambda==1 & sparse & length(lambda)>1){
+    lambda.red <- as.data.frame(lambda.dat[,1:4])
+    row.names(lambda.red) <- c()
+    keep.num <- which(abs(lambda.red$bad_lambda_ind)<0.5 & lambda.red$lambda < best.lambda)
+    if(length(keep.num)>0){
+      new.best.lambda <- lambda.red$lambda[keep.num[which(lambda.red$val[keep.num] == min(lambda.red$val[keep.num], na.rm = T))]][1]
+      cat(paste0("Re-estimating Loadings and Scores with lambda= ", new.best.lambda, "\n"))
+      test.best <- sesJIVE.converge(X, Y,
+                                    max.iter=max.iter, threshold = threshold,
+                                    family.x = family.x,
+                                    family.y = family.y,
+                                    rankJ=rankJ, rankA=rankA,
+                                    weights=c(rep(keep.me.wt,length(X)), 1-keep.me.wt),
+                                    show.message=T, show.error=show.error,
+                                    irls_iter=1, intercept=intercept, sparse=sparse,
+                                    lambda=new.best.lambda,
+                                    initial=initial,
+                                    sesJIVE.fit=test.first)
     }
+  }
 
-    if(length(var.none)>1){var.none = var.none[length(var.none)]}
-    dev.resid <- get_deviance(Y, test.final$natY, family.y, var0=var.none)
+  test.best$data$X <- X
+  test.best$data$Y <- Y
 
-    test.final$deviance <- dev.resid
+  if(sparse){
+    cat("Re-estimating Scores \n")
+    test.best.pred <- stats::predict(test.best, X, show.error=show.error,
+                              train=T)
 
-    return(test.final)
+    #Combine results into final results
+    test.final <- test.best
+    test.final$S_J <- test.best.pred$Sj
+    test.final$S_I <- test.best.pred$Si
+    test.final$pred.all.error <- test.best.pred$all.error
+
+    #Re-calculate natX and natY
+    int <- t(as.matrix(rep(1,ncol(test.final$natX[[1]]))))
+    thetaS <- 0; X.tilde <- NULL
+    for(i in 1:k){
+      X.tilde <- rbind(X.tilde, X)
+      t1 <- test.final$intercept[[i]] %*%  int
+      t2 <- test.final$U_I[[i]] %*% test.final$S_J
+      t3 <- test.final$W_I[[i]] %*% test.final$S_I[[i]]
+      test.final$natX[[i]] <- t1 + t2 + t3
+      thetaS <- thetaS + test.final$theta2[[i]] %*% test.final$S_I[[i]]
+    }
+    test.final$natY <- test.final$intercept[[k+1]] %*% int +
+      test.final$theta1 %*% test.final$S_J + thetaS
+  }else{
+    test.final <- test.best
+  }
+
+  if(sparse & length(lambda)>1){
+    lambda.dat <- as.data.frame(lambda.dat[,1:4])
+    row.names(lambda.dat) <- c()
+    test.final$lambda.dat <- lambda.dat
+  }
+
+  dev.resid <- get_deviance(Y, test.final$natY, family.y)
+
+  test.final$deviance <- dev.resid
+  return(test.final)
 
 }
 
@@ -357,9 +341,9 @@ sesJIVE <- function(X, Y, rankJ = 1, rankA=rep(1,length(X)),wts=NULL, max.iter=1
 #' @param max.iter max iterations
 #' @param show.error show error during iterations
 #' @param show.message show confirmation when method converges
-#' @param irls_iter the number of iterations of the IRLS algorithm that should
-#' be performed for each parameter update within the algorithm. If NULL, will
-#' run until convergence.
+#' @param train A boolean for whether or not the predict function is running for the
+#'  training dataset. Default is FALSE.
+#' @param ... Additional arguments
 #'
 #' @details \code{predict.sesJIVE} calculates predicted values for \code{newdata}
 #' based on the fitted model. The function first calculates the joint and
@@ -376,211 +360,285 @@ sesJIVE <- function(X, Y, rankJ = 1, rankA=rep(1,length(X)),wts=NULL, max.iter=1
 #'  \item{error}{The error value at which the model converged.}
 #' @export
 predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
-                              max.iter=2000, irls_iter=1, show.error=F,
-                              show.message=T, train=F, ...){
-    ##############################################
-    # object is the output from sesJIVE
-    # newdata is list with the same predictors and
-    #     number of datasets as used in sJIVE.fit
-    ##############################################
-    U.norm <- object$U.norm
-    W.norm <- object$W.norm
+                           max.iter=2000, show.error=F,
+                           show.message=T, train=F, ...){
+  ##############################################
+  # object is the output from sesJIVE
+  # newdata is list with the same predictors and
+  #     number of datasets as used in sJIVE.fit
+  ##############################################
+  U.norm <- object$U.norm
+  W.norm <- object$W.norm
 
-    if(U.norm == 0){
-      sparse <- FALSE
-    }else{
-      sparse <- TRUE
+  sparse<- FALSE
+
+  if(object$rankJ==0 & sum(object$rankA)==0){
+    return(list(Ypred = 0,
+                Sj = 0,
+                Si = 0,
+                iteration = 0,
+                error = NA))
+  }
+
+  #Initalize values
+  weights <- object$weights
+  k <- length(newdata)
+  n <- ncol(newdata[[1]])
+  W <- object$W_I
+  U <- object$U_I
+  mu <- object$intercept
+  int <- t(as.matrix(rep(1,n)))
+  rankJ <- ncol(as.matrix(U[[1]]))
+  if(train){
+    Sj <- object$S_J
+    theta1 <- object$theta1
+  }else{
+    Sj <- matrix(rep(0,rankJ*n), ncol = n)
+    theta1=NULL
+  }
+
+  if(sparse){
+    for(i in 1:k){
+      U[[i]] <- U.norm * U[[i]]
+      W[[i]] <- W.norm[[i]] * W[[i]]
     }
+  }
 
-    if(object$rankJ==0 & sum(object$rankA)==0){
-      return(list(Ypred = 0,
-                  Sj = 0,
-                  Si = 0,
-                  iteration = 0,
-                  error = NA))
-    }
+  obs <- rankA <- Si <- theta2 <- list(); temp <- 0; X.tilde <- NULL
+  for(i in 1:k){
+    max.obs <- max(temp)
+    temp <- (max.obs+1):(max.obs+nrow(newdata[[i]]))
+    obs[[i]] <- temp
 
-    #Initalize values
-    weights <- object$weights
-    k <- length(newdata)
-    n <- ncol(newdata[[1]])
-    W <- object$W_I
-    U <- object$U_I
-    mu <- object$intercept
-    int <- t(as.matrix(rep(1,n)))
-    rankJ <- ncol(as.matrix(U[[1]]))
+    X.tilde <- rbind(X.tilde, newdata[[i]])
+
+    rankA[[i]] <- ncol(as.matrix(W[[i]]))
     if(train){
-      Sj <- object$S_J
+      Si[[i]] <- object$S_I[[i]]
+      theta2[[i]] <- object$theta2[[i]]
     }else{
-      Sj <- matrix(rep(0,rankJ*n), ncol = n)
+      Si[[i]] <- matrix(rep(0,rankA[[i]]*n), ncol=n)
+      theta2[[i]] <- 0
     }
+  }
+  if(train){
+    obs[[k+1]] = max(obs[[k]])+1
+    X.tilde <- rbind(X.tilde, object$data$Y)
+  }
 
-    if(sparse){
-      for(i in 1:k){
-        U[[i]] <- U.norm * U[[i]]
-        W[[i]] <- W.norm[[i]] * W[[i]]
-      }
-    }
-
-    obs <- rankA <- Si <- list(); temp <- 0; X.tilde <- NULL
-    for(i in 1:k){
-      max.obs <- max(temp)
-      temp <- (max.obs+1):(max.obs+nrow(newdata[[i]]))
-      obs[[i]] <- temp
-
-      X.tilde <- rbind(X.tilde, newdata[[i]])
-
-      rankA[[i]] <- ncol(as.matrix(W[[i]]))
-      if(train){
-        Si[[i]] <- object$S_I[[i]]
-      }else{
-        Si[[i]] <- matrix(rep(0, rankA[[i]]*n), ncol=n)
-      }
-    }
-
-    fam.list <- list()
-    for(i in 1:k){
-      if(object$family.x[i]=="gaussian"){
-        fam.list[[i]] <- stats::gaussian()
-      }else if(object$family.x[i]=="binomial"){
-        fam.list[[i]] <- stats::binomial()
-      }else if(object$family.x[i]=="poisson"){
-        fam.list[[i]] <- stats::poisson()
-      }else{
-        print(paste0(object$family.x[i], " Distribution Does Not Exist"))
-        stop()
-      }
-    }
-    if(object$family.y=="gaussian"){
-      famY <- stats::gaussian()
-    }else if(object$family.y=="binomial"){
-      famY <- stats::binomial()
-    }else if(object$family.y=="poisson"){
-      famY <- stats::poisson()
+  fam.list <- list()
+  for(i in 1:k){
+    if(object$family.x[i]=="gaussian"){
+      fam.list[[i]] <- stats::gaussian()
+    }else if(object$family.x[i]=="binomial"){
+      fam.list[[i]] <- stats::binomial()
+    }else if(object$family.x[i]=="poisson"){
+      fam.list[[i]] <- stats::poisson()
     }else{
-      print(paste0(object$family.y, " Distribution Does Not Exist"))
+      print(paste0(object$family.x[i], " Distribution Does Not Exist"))
       stop()
+    }
+  }
+  if(object$family.y=="gaussian"){
+    famY <- stats::gaussian()
+  }else if(object$family.y=="binomial"){
+    famY <- stats::binomial()
+  }else if(object$family.y=="poisson"){
+    famY <- stats::poisson()
+  }else{
+    print(paste0(object$family.y, " Distribution Does Not Exist"))
+    stop()
+  }
+  if(train){ fam.list[[k+1]] = famY}
+
+  #Get Error
+  error.old <- sesJIVE.error(X.tilde, U, Sj, W, Si, k, mu, fam.list, ob2=obs, kk=k,
+                             wt.vec=weights, train2 = train, theta1 = theta1,
+                             theta2 = theta2)
+
+  #Set up IRLS
+  k2 <- ifelse(train, k+1, k)
+  irls.list <- list()
+  for(i in 1:(k+1)){
+    if(i==1){p <- "Sj"; dfs <- 1:k
+    beta <- Sj
+    #matrix(rep(0,rankJ*n), ncol=n)   #rnorm(rankJ*n,0,0.1), ncol=n)
+    }else{p <- paste0("S",i-1); dfs <- i-1
+    beta <- Si[[i-1]]
+    #matrix(rep(0,rankA[[i-1]]*n), ncol=n) #rnorm(rankA[[i-1]]*n,0,0.1), ncol=n)
+    }
+    irls.list[[i]] <- list(param=p,
+                           dfs = dfs,
+                           eta.old=0,
+                           eta.new=0,
+                           beta.old=beta,
+                           beta.new=beta,
+                           dev.old = 0,
+                           dev.new = 0,
+                           iter=0,
+                           dev.all = 0)
+  }
+  eta.temp <- NULL; WS <- 0
+  for(i in 1:k){
+    t1 <- mu[[i]] %*% t(as.matrix(rep(1,ncol(as.matrix(Sj))))) +
+      U[[i]] %*% matrix(Sj, ncol=n) + W[[i]] %*% Si[[i]]
+    WS <-  WS + theta2[[i]] %*% Si[[i]]
+    eta.temp <- rbind(eta.temp, t1)
+  }
+  if(train){
+    t2 <- as.numeric(mu[[k+1]]) +  theta1 %*% matrix(Sj, ncol=n) + WS
+    eta.temp <- rbind(eta.temp, t2)
+  }
+  irls.list[[k+2]] <- eta.temp
+  fit <- k+2
+
+  ############################ Loop ################
+  temp.err1 <- sesJIVE.error(X.tilde, U, Sj, W, Si, k, mu,
+                             fam.list,ob2=obs, kk=k, wt.vec=weights,
+                             train2 = train, theta1 = theta1,
+                             theta2 = theta2)$log_lik
+
+  error.vec <- NULL
+
+  if(("poisson" %in% fam.list) | ("binomial" %in% fam.list)){
+    irls_iter <- NULL
+  }else{
+    irls_iter <- 1
+  }
+
+  for(iter in 1:max.iter){
+
+    #Optimize Sj
+    U.mat <- A <- mu.mat <- NULL; WS=0
+    for(i in 1:k){
+      mu.mat <- rbind(mu.mat, as.matrix(mu[[i]]))
+      U.mat <- rbind(U.mat, as.matrix(U[[i]]))
+      A <- rbind(A, as.matrix(W[[i]]) %*% as.matrix(Si[[i]]))
+      WS <- as.matrix(theta2[[i]]) %*% as.matrix(Si[[i]])
+    }
+    if(train){
+      mu.mat <- rbind(mu.mat, as.matrix(mu[[k+1]]))
+      U.mat <- rbind(U.mat, as.matrix(theta1))
+      A <- rbind(A, WS)
+    }
+    off <- mu.mat %*% int + A
+    beta.old <- irls.list[[1]]$beta.new
+    irls.list <- irls_func(irls.list,U.mat, #U is known
+                           num_iter = irls_iter, list_num = 1, offsets=off,
+                           outcome = X.tilde, thresholds=threshold, famlist=fam.list,
+                           transpose=F,  ob=obs, predicting = T,
+                           eta1 = irls.list[[k+2]], Xtilde=X.tilde,
+                           wt.vec=object$weights)
+    temp.err2 <- sesJIVE.error(X.tilde, U, irls.list[[1]]$beta.new, W, Si, k, mu,
+                               fam.list,ob2=obs, kk=k, wt.vec=weights,
+                               train2 = train, theta1 = theta1,
+                               theta2 = theta2)$log_lik
+
+    if(is.na(as.numeric(as.character(temp.err2)))){
+      irls.list[[1]]$beta.new <- beta.old
+    }else if(as.numeric(as.character(temp.err2))-temp.err1< -1){
+      #cat(paste0("Warning: S", i, "wanted to diverge iter ", iter))
+      irls.list[[1]]$beta.new <- beta.old
+    }else{
+      temp.err1 <- as.numeric(as.character(temp.err2))
+      Sj <- irls.list[[1]]$beta.new
+    }
+
+    for(i in 1:k){
+      #Calculate Outcome and Predictor
+      W_temp <- matrix(rep(0,rankA[[i]]*nrow(X.tilde)), ncol=rankA[[i]])
+      W_temp[obs[[i]],] <- W[[i]]
+      off <- mu.mat %*% int + U.mat %*% Sj
+      if(train){
+        WS <- 0
+        for(j in 1:k){
+          if(j != i){
+            WS <- WS + as.matrix(theta2[[j]]) %*% as.matrix(Si[[j]])
+          }
+        }
+        W_temp[obs[[k+1]],] <- theta2[[i]]
+        off[obs[[k+1]],] <- mu[[k+1]] + theta1 %*% Sj + WS
+      }
+
+      #Optimize Si
+      beta.old <- irls.list[[i+1]]$beta.new
+      irls.list <- irls_func(irls.list,predictor=W_temp, #W is known
+                             num_iter = irls_iter, list_num = i+1, outcome = X.tilde,
+                             offsets=off, Xtilde = X.tilde,
+                             thresholds=threshold, famlist=fam.list,
+                             transpose=F, ob=obs, predicting = T,
+                             eta1 = irls.list[[fit]],
+                             wt.vec=object$weights)
+      Si.temp <- Si
+      Si.temp[[i]] <- irls.list[[i+1]]$beta.new
+      temp.err2 <- sesJIVE.error(X.tilde, U, Sj, W, Si.temp, k, mu,
+                                 fam.list,ob2=obs, kk=k, wt.vec=weights,
+                                 train2 = train, theta1 = theta1,
+                                 theta2 = theta2)$log_lik
+      if(is.na(as.numeric(as.character(temp.err2)))){
+        irls.list[[i+1]]$beta.new <- beta.old
+      }else if(as.numeric(as.character(temp.err2))-temp.err1< -1){
+        #cat(paste0("Warning: S", i, "wanted to diverge iter ", iter))
+        irls.list[[i+1]]$beta.new <- beta.old
+      }else{
+        temp.err1 <- as.numeric(as.character(temp.err2))
+        Si <- Si.temp
+      }
+
     }
 
     #Get Error
-    error.old <- sesJIVE.error(X.tilde, U, Sj, W, Si, k, mu, fam.list, obs, kk=k,
-                               wt.vec=weights)
-
-    #Set up IRLS
-    irls.list <- list()
-    for(i in 1:(k+1)){
-      if(i==1){p <- "Sj"; dfs <- 1:k
-      beta <- Sj
-      #matrix(rep(0,rankJ*n), ncol=n)   #rnorm(rankJ*n,0,0.1), ncol=n)
-      }else{p <- paste0("S",i-1); dfs <- i-1
-      beta <- Si[[i-1]]
-      #matrix(rep(0,rankA[[i-1]]*n), ncol=n) #rnorm(rankA[[i-1]]*n,0,0.1), ncol=n)
-      }
-      irls.list[[i]] <- list(param=p,
-                             dfs = dfs,
-                             eta.old=0,
-                             eta.new=0,
-                             beta.old=beta,
-                             beta.new=beta,
-                             dev.old = 0,
-                             dev.new = 0,
-                             iter=0,
-                             dev.all = 0)
+    #Figure out the error
+    error.new <- sesJIVE.error(X.tilde, U, Sj, W, Si, k, mu,
+                               fam.list,ob2=obs, kk=k, wt.vec=weights,
+                               train2 = train, theta1 = theta1,
+                               theta2 = theta2)
+    if(show.error){print(error.new$log_lik)}
+    error.vec <- c(error.vec, error.new$log_lik)
+    #Check for Convergence
+    if(abs(error.old$log_lik - error.new$log_lik) < threshold){
+      if(show.message){cat(paste0("Converged in ", iter, " iterations \n"))}
+      break
+    }else{
+      error.old <- error.new
     }
-    eta.temp <- NULL
+  }
+
+  Xnat <- list()
+  for(i in 1:k){
+    Xnat[[i]] <- object$intercept[[i]] %*% int + U[[i]] %*% Sj +
+      W[[i]] %*% Si[[i]]
+  }
+
+  Ynat <- object$intercept[[k+1]] %*% int + object$theta1 %*% Sj
+  for(i in 1:k){
+    Ynat <- Ynat + object$theta2[[i]] %*% Si[[i]]
+  }
+  Ypred <- Yprob <- famY$linkinv(Ynat)
+  if(object$family.y=="binomial"){
+    Ypred <- round(Ypred,0)
+  }else if(object$family.y=="poisson"){
+    Ypred <- round(Ypred,0)
+  }
+
+  #If sparse, re-scale Scores/loadings
+  if(sparse){
+    Sj <- Sj * object$U.norm
     for(i in 1:k){
-      t1 <- mu[[i]] %*% t(as.matrix(rep(1,ncol(as.matrix(Sj))))) +
-        U[[i]] %*% matrix(Sj, ncol=n) + W[[i]] %*% Si[[i]]
-      eta.temp <- rbind(eta.temp, t1)
+      Si[[i]] <- Si[[i]] * object$W.norm[[i]]
     }
-    irls.list[[k+2]] <- eta.temp
-    fit <- k+2
-
-    ############################ Loop ################
-    for(iter in 1:max.iter){
-
-      #Optimize Sj
-      U.mat <- A <- mu.mat <- NULL
-      for(i in 1:k){
-        mu.mat <- rbind(mu.mat, as.matrix(mu[[i]]))
-        U.mat <- rbind(U.mat, as.matrix(U[[i]]))
-        A <- rbind(A, as.matrix(W[[i]]) %*% as.matrix(Si[[i]]))
-      }
-      off <- mu.mat %*% int + A
-      irls.list <- irls_func(irls.list,U.mat, #U is known
-                             num_iter = irls_iter, list_num = 1, offsets=off,
-                             outcome = X.tilde, thresholds=threshold, famlist=fam.list,
-                             transpose=F,  ob=obs, score=sparse, predicting = T,
-                             eta1 = irls.list[[k+2]], Xtilde=X.tilde,
-                             wt.vec=object$weights)
-      Sj <- irls.list[[1]]$beta.new
+  }
 
 
-      for(i in 1:k){
-        #Calculate Outcome and Predictor
-        W_temp <- matrix(rep(0,rankA[[i]]*nrow(X.tilde)), ncol=rankA[[i]])
-        W_temp[obs[[i]],] <- W[[i]]
-        off <- mu.mat %*% int + U.mat %*% Sj
-
-        #Optimize Si
-        irls.list <- irls_func(irls.list,predictor=W_temp, #W is known
-                               num_iter = irls_iter, list_num = i+1, outcome = X.tilde,
-                               offsets=off, Xtilde = X.tilde,
-                               thresholds=threshold, famlist=fam.list,
-                               transpose=F, ob=obs, predicting = T,
-                               eta1 = irls.list[[fit]], score=sparse,
-                               wt.vec=object$weights)
-        Si[[i]] <- irls.list[[i+1]]$beta.new
-      }
-
-      #Get Error
-      #Figure out the error
-      error.new <- sesJIVE.error(X.tilde, U, Sj, W, Si, k, mu,
-                                 fam.list,obs, kk=k, wt.vec=weights)
-      if(show.error){print(error.new$log_lik)}
-      #Check for Convergence
-      if(abs(error.old$log_lik - error.new$log_lik) < threshold){
-        if(show.message){cat(paste0("Converged in ", iter, " iterations \n"))}
-        break
-      }else{
-        error.old <- error.new
-      }
-    }
-
-    Xnat <- list()
-    for(i in 1:k){
-      Xnat[[i]] <- object$intercept[[i]] %*% int + U[[i]] %*% Sj +
-        W[[i]] %*% Si[[i]]
-    }
-
-    Ynat <- object$intercept[[k+1]] %*% int + object$theta1 %*% Sj
-    for(i in 1:k){
-      Ynat <- Ynat + object$theta2[[i]] %*% Si[[i]]
-    }
-    Ypred <- Yprob <- famY$linkinv(Ynat)
-    if(object$family.y=="binomial"){
-      Ypred <- round(Ypred,0)
-    }else if(object$family.y=="poisson"){
-      Ypred <- round(Ypred,0)
-    }
-
-    #If sparse, re-scale Scores/loadings
-    if(sparse){
-      Sj <- Sj * object$U.norm
-      for(i in 1:k){
-        Si[[i]] <- Si[[i]] * object$W.norm[[i]]
-      }
-    }
-
-
-    return(list(Ypred = Ypred,
-                Ynat = Ynat,
-                Xnat = Xnat,
-                Yprob = Yprob,
-                Sj = Sj,
-                Si = Si,
-                iteration = iter,
-                error = error.new$log_lik))
+  return(list(Ypred = Ypred,
+              Ynat = Ynat,
+              Xnat = Xnat,
+              Yprob = Yprob,
+              Sj = Sj,
+              Si = Si,
+              iteration = iter,
+              error = error.new$log_lik,
+              all.error=error.vec))
 }
 
 
@@ -643,20 +701,25 @@ backtrack <- function(x, dx, f, df, alpha=0.01, beta=0.8, b.full,
 
 
 optim.error2 <- function(irlslist2, famlist2, kk2, ob2,
-                        Xtilde2, wt.vec2, sparse, var0,
-                        lambda2){
+                         Xtilde2, wt.vec2, sparse,
+                         lambda2){
   Sj <- irlslist2[[1]]$beta.new
   U <- irlslist2[[2]]$beta.new
   mu.temp <- as.matrix(irlslist2[[length(irlslist2)-1]]$beta.new) %*% rep(1,ncol(Sj))
+  mu.temp2 <- mu.temp[-nrow(mu.temp),]
   WS <- NULL; thetaS <- 0
-  penalty <- norm(Sj, type="F") + lambda2 * norm(matrix(U), type="O")
+  penalty <- prod(dim(mu.temp)) * norm(Sj, type="F")^2 +
+    prod(dim(mu.temp2))*lambda2 * norm(matrix(matrix(U)[-nrow(matrix(U)),]), type="O")
   for(i in 1:kk2){
-    temp <- irlslist2[[i*2+2]]$beta.new %*% irlslist2[[i*2+1]]$beta.new
+    Wi <- irlslist2[[i*2+2]]$beta.new
+    Si <- irlslist2[[i*2+1]]$beta.new
+    temp <- Wi %*% Si
     WS <- rbind(WS, temp[-nrow(temp),])
     thetaS <- thetaS + temp[nrow(temp),]
-    Si_pen <- norm(irlslist2[[i*2+1]]$beta.new, type="F")
-    Wi_pen <- norm(irlslist2[[i*2+2]]$beta.new, type="O")
-    penalty <- penalty + Si_pen +  lambda2 *Wi_pen
+    Si_pen <- norm(matrix(as.numeric(Si), ncol=ncol(Si)), type="F")^2
+    Wi_pen <- norm(matrix(as.numeric(Wi[-nrow(Wi),]), ncol=ncol(Wi)), type="O")
+    penalty <- penalty + prod(dim(temp)) * Si_pen +
+      prod(dim(temp))* lambda2 *Wi_pen
   }
   Y.pred <-mu.temp + U %*% Sj + rbind(WS,thetaS)
 
@@ -669,128 +732,38 @@ optim.error2 <- function(irlslist2, famlist2, kk2, ob2,
     n <- ncol(natX)
     if(is.null(n)){n <- 1}
     if(famlist2[[i]]$family=="gaussian"){
-      if(is.null(var0)){
-        sigma2 <- 1 #var(as.vector(X - Xfit))
-      }else{ sigma2 <- var0[i]}
-      ll <- -wt.vec2[i] * sum((X - Xfit)^2) / (2 * sigma2)
+      ll <- -wt.vec2[i] * sum((X - Xfit)^2) / 2
     }else if(famlist2[[i]]$family=="binomial"){
       ll <- wt.vec2[i]*(sum( X*log(Xfit) + (1-X)*log(1-Xfit)))
     }else if(famlist2[[i]]$family=="poisson"){
       fx <- log(factorial(X))
-      fx[which(fx==Inf)] <- -55.22 + 4.32*X[which(fx==Inf)]
+      high.obs <- which(fx==Inf)
+      if(length(high.obs)>0){
+        for(j in high.obs){
+          temp <- log(factorial(170))
+          for(m in 171:X[j]){temp <- temp + log(m)}
+          fx[j] <- temp
+        }
+      }
       ll <- wt.vec2[i]*(sum( X*log(Xfit) - Xfit - fx))
     }
     data_ll2 <- c(data_ll2, ll)
   }
-  #############
-  #Get Deviance
-  data_dev <- NULL
-  for(i in 1:(kk2+1)){
-    X <- Xtilde2[ob2[[i]],]
-    natX <- Y.pred[ob2[[i]],]
-    Xfit <- famlist2[[i]]$linkinv(natX)
-    dev_temp <- 0
-
-    for(j in 1:length(ob2[[i]])){
-      if(is.vector(X)){
-        ytrue <- X
-        ynat <- natX
-      }else{
-        ytrue <- as.vector(X[j,])
-        ynat <- as.vector(natX[j,])
-      }
-      n <- length(ytrue)
-      if(famlist2[[i]]$family=="gaussian"){
-        if(is.null(var0)){
-          sigma2 <- 1
-        }else{ sigma2 <- var0}
-        dev.resid <-  2*sum((ytrue - ynat)^2) / (2 * sigma2)
-      }else if(famlist2[[i]]$family=="binomial"){
-        p.hat <- exp(ynat) / (1 + exp(ynat))
-        dev.resid <- -2*( ytrue *log(p.hat) + (1-ytrue)*log(1-p.hat))
-        t1 <- which(dev.resid == Inf)
-        t2 <- which(is.na(dev.resid))
-        if(length(t1)>0){dev.resid[t1] <- 100000}
-        if(length(t2)>0){dev.resid[t1] <- 0}
-        dev.resid <- sum(dev.resid, na.rm = T)
-      }else if(famlist2[[i]]$family=="poisson"){
-        mu <- exp(ynat)
-        zero.obs <- which(ytrue==0)
-        if(length(zero.obs)>0){
-          dev.resid <- 2*sum( ytrue[-zero.obs]*log(ytrue[-zero.obs]/mu[-zero.obs]) -
-                                ytrue[-zero.obs] + mu[-zero.obs]) + 2*sum(mu[zero.obs])
-        }else{dev.resid <- 2*sum( ytrue*log(ytrue/mu) - ytrue + mu)}
-      }
-      dev_temp <- dev_temp + dev.resid
-
-    }
-    data_dev <- c(data_dev, dev_temp)
-  }
 
   #############
-  if(sparse==F){penalty<-0}
+  if(sparse==F){penalty<-0
+  }else{data_ll2 <- data_ll2}
 
-  return(list(log_lik = sum(data_ll2),#-penalty,
-              dev=sum(data_dev),
+  return(list(log_lik = sum(data_ll2)-penalty,
               data_lik = data_ll2))
 }
 
-get_loglik <- function(sesJIVE.fit, XX, YY, family.xx, family.yy){
-  #Calculate Likelihood
-  kk2 <- k <- length(XX)
-
-  famlist <- list()
-  family.x <- c(family.xx, family.yy)
-  for(i in 1:(k+1)){
-    if(family.x[i]=="gaussian"){
-      famlist[[i]] <- stats::gaussian()
-    }else if(family.x[i]=="binomial"){
-      famlist[[i]] <- stats::binomial()
-    }else if(family.x[i]=="poisson"){
-      famlist[[i]] <- stats::poisson()
-    }else{
-      print(paste0(family.x[i], " Distribution Does Not Exist"))
-      stop()
-    }
-  }
-  wt.vec2 <- sesJIVE.fit$weights
-  data_ll2 <- NULL
-  for(i in 1:(kk2+1)){
-    if(i <= kk2){
-      X <- XX[[i]]
-      natX <- sesJIVE.fit$natX[[i]]
-    }else{
-      X <- YY
-      natX <- sesJIVE.fit$natY
-    }
-    Xfit <- famlist[[i]]$linkinv(natX)
-    n <- ncol(natX)
-    if(is.null(n)){n <- 1}
-    if(famlist[[i]]$family=="gaussian"){
-      ll <- -wt.vec2[i] * sum((X - Xfit)^2) / 2
-    }else if(famlist[[i]]$family=="binomial"){
-      ll <- wt.vec2[i]*(sum( X*log(Xfit) + (1-X)*log(1-Xfit)))
-    }else if(famlist[[i]]$family=="poisson"){
-      fx <- log(factorial(X))
-      fx[which(fx==Inf)] <- -55.22 + 4.32*X[which(fx==Inf)]
-      ll <- wt.vec2[i]*(sum( X*log(Xfit) - Xfit - fx))
-    }
-    data_ll2 <- c(data_ll2, ll)
-  }
-  #############
-  return(list(log_lik = sum(data_ll2),
-              data_lik = data_ll2))
-}
-
-get_deviance <- function(ytrue, ynat, family.yy, var0=NULL){
+get_deviance <- function(ytrue, ynat, family.yy){
   ytrue <- as.vector(ytrue)
   ynat <- as.vector(ynat)
   n <- length(ytrue)
   if(family.yy=="gaussian"){
-    if(is.null(var0)){
-      sigma2 <- 1
-    }else{ sigma2 <- var0}
-    dev.resid <-  2*sum((ytrue - ynat)^2) / (2 * sigma2)
+    dev.resid <-  2*sum((ytrue - ynat)^2) / 2
   }else if(family.yy=="binomial"){
     p.hat <- exp(ynat) / (1 + exp(ynat))
     dev.resid <- -2*( ytrue *log(p.hat) + (1-ytrue)*log(1-p.hat))
@@ -811,17 +784,12 @@ get_deviance <- function(ytrue, ynat, family.yy, var0=NULL){
 }
 
 irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
-                      thresholds, famlist,
+                      thresholds=0.0001, famlist,
                       outcome, transpose=F, ob, predicting=F,
-                      eta1=NULL, wt.vec, sparse=F, lambda=1, kk,
-                      Xtilde, old.err=NULL,scale=F, score=F, var0,
-                      full.obs=obs){
+                      eta1=NULL, wt.vec, sparse=F, lambda=1, kk=k,
+                      Xtilde, score=F,
+                      full.obs){
   dat <- irlslist[[list_num]]
-  time1 <- Sys.time()
-  time8 <- time7 <- time6 <- time5 <- time4 <- time3 <- time2 <- time1
-  bls1 <- bls2 <- 0
-  bls.t <- NULL
-
   converge <- F
   if(is.null(num_iter)){
     num_iter <- 1000
@@ -856,11 +824,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         }
         nvars = ncol(Y)
       }
-      if(transpose==F){
-        wt <- rep(wt.vec[j],nobs)
-      }else{
-        wt <- rep(1,nobs)
-      }
+      wt <- rep(wt.vec[j],nobs)
       if(dat$iter==0 &
          ((predicting==F & list_num==(length(irlslist)-1)) | #sesJIVE=finding mu
           (predicting==T & list_num==1))){   #sesJIVE.predict=finding Sj
@@ -905,7 +869,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         dev.new = sum(famlist[[j]]$dev.resids(y, mu, wt))
 
         dev1 <- dev1 + dev.new
-        z_k <- cbind(z_k, eta.old[,l] + (y - mu) / gprime  - off[,l])
+        z_k <- cbind(z_k, eta.old[,l] - off[,l] + (y - mu) / gprime )
         w_k <- cbind(w_k, as.matrix(as.vector(wt[1]*gprime^2 / varg)))
       }
 
@@ -918,9 +882,8 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
       }
       rownum <- c(rownum, ob[[j]])
     }
-    time2 <- Sys.time()
     #Final Calculation
-    if(sparse==F | predicting==T){ #If sparse==F, do NOT put a penalty on anything
+    if(sparse==F){ #If sparse==F, do NOT put a penalty on anything
       beta.new <- NULL
       if(transpose){
         for(k in 1:ncol(W)){
@@ -947,45 +910,54 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         eta.new = Xtran %*% beta.new + offsets[rownum,]
       }
     }else if(sparse & score==F){ ###Sparse Loadings
-      time3 <- Sys.time()
+      #part 1: save the unpenalized coefficients for the outcome
+      Xtran <- t(predictor)
+      temp <- rep(0, ncol(Xtran))
+      k <- ncol(W)
+      try(
+        temp <- solve(crossprod(Xtran,W[,k]*Xtran),
+                      crossprod(Xtran,W[,k]*z[,k]), tol=2*.Machine$double.eps),
+        silent=T)
+      beta.y.coef <- temp
+
+      #Part 2: find the penalized loadings
       y.temp <- NULL
       x.temp <- list()
-      for(k in 1:ncol(W)){
-        x.temp[[k]] <- sqrt(diag(W[,k])) %*% t(as.matrix(predictor)) #X=W^(1/2)*X
+      for(k in 1:(ncol(W)-1)){
+        x.temp[[k]] <- sqrt(diag(W[,k])) %*% t(as.matrix(predictor)) #X.temp=W^(1/2)*X
         y.temp <- rbind(y.temp, sqrt(diag(W[,k]))%*%z[,k])
       }
       x.temp2 <- Matrix::bdiag(x.temp)
 
       r <- ncol(x.temp2)
-      #time1 <- Sys.time()
       if(sum(abs(y.temp))==0 | sum(abs(x.temp2))==0){
         beta.sparse <- rep(0,r)
       }else{
         fit.lasso <- glmnet::glmnet(as.matrix(x.temp2),y.temp,
-                            family="gaussian",
-                            alpha=1, nlambda=1, lambda=lambda, #*r/100,
-                            intercept = FALSE, standardize = TRUE,
-                            thresh=0.001)
-        #time2 <- Sys.time()
+                                    family="gaussian",
+                                    alpha=1, nlambda=1, lambda=lambda,
+                                    intercept = FALSE, standardize = FALSE,
+                                    thresh=0.001)
         beta.sparse <- as.numeric(fit.lasso$beta)
       }
-      time4 <- Sys.time()
       #Incase Rank>1, re-format matrix
       beta.new <- matrix(beta.sparse, ncol=dim(predictor)[1], byrow=F)
 
       #Part2: Backtracking line search
-      fl <- function(x, y=Xtilde, z2=predictor, b.full=dat$beta.new,
-                     b.sparse=beta.new, of=offsets[rownum,], wt.vec2=wt.vec,
-                     famlist2=famlist, ob2=ob,var01=var0,
+      fl <- function(x, y=Xtilde[-nrow(Xtilde),], z2=predictor, b.full=dat$beta.new[-nrow(dat$beta.new),],
+                     b.sparse=beta.new, of=offsets[rownum[-length(rownum)],], wt.vec2=wt.vec,
+                     famlist2=famlist, ob2=ob,
                      lambda2=lambda){
         b.full <- as.matrix(b.full)
         b.sparse <- as.matrix(b.sparse)
-        Y.pred <-  of + t(x * t(b.full) + (1-x) * t(b.sparse)) %*% z2
+        b <- t(x * t(b.full) + (1-x) * t(b.sparse))
+        Y.pred <-  of + b %*% z2
 
+        penalty <- prod(dim(Y.pred))*lambda2 * norm(matrix(b), type="O")
         #Calculate Likelihood
         data_ll2 <- NULL
         numvar <- 0
-        for(i in dat$dfs){
+        for(i in dat$dfs[-length(dat$dfs)]){
           X <- y[ob2[[i]],]
           natX <- Y.pred[(numvar+1):(numvar + length(ob2[[i]])),]
           numvar <- numvar + length(ob2[[i]])
@@ -993,20 +965,24 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
           n <- ncol(natX)
           if(is.null(n)){n <- 1}
           if(famlist2[[i]]$family=="gaussian"){
-            if(is.null(var01)){
-              sigma2 <- 1 #var(as.vector(X - Xfit))
-            }else{ sigma2 <- var01[i]}
-            ll <- -wt.vec2[i] * sum((X - Xfit)^2) / (2 * sigma2)
+            ll <- -wt.vec2[i] * sum((X - Xfit)^2) / 2
           }else if(famlist2[[i]]$family=="binomial"){
             ll <- wt.vec2[i]*(sum( X*log(Xfit) + (1-X)*log(1-Xfit)))
           }else if(famlist2[[i]]$family=="poisson"){
             fx <- log(factorial(X))
-            fx[which(fx==Inf)] <- -55.22 + 4.32*X[which(fx==Inf)]
+            high.obs <- which(fx==Inf)
+            if(length(high.obs)>0){
+              for(j in high.obs){
+                temp <- log(factorial(170))
+                for(m in 171:X[j]){temp <- temp + log(m)}
+                fx[j] <- temp
+              }
+            }
             ll <- wt.vec2[i]*(sum( X*log(Xfit) - Xfit - fx))
           }
           data_ll2 <- c(data_ll2, -ll)
         }
-        return(sum(data_ll2))
+        return(sum(data_ll2)+penalty)
       }
       dfl <- function(x){
         if(x==1){h <- -0.001
@@ -1015,7 +991,6 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         return(e)}
       old.t<-0; new.t <-0; iters <- 0; t.vec <- NULL
       bb <- 0.5; run.backtrack=T; temp <- c(.1,.1)
-      #time3 <- Sys.time()
       if(dfl(0)>0){
         new.t=0
         run.backtrack = F
@@ -1029,7 +1004,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
           iters <- iters + 1
           old.t <- new.t
           if(abs(dfl(new.t))<0.0000001){break}
-          if(new.t == 0 & dfl(new.t)>0){break}
+          if(new.t == 0 & df(new.t)>0){break}
           t.vec <- c(t.vec, new.t)
           temp<-backtrack(x=as.numeric(old.t), dx=sign(dfl(as.numeric(old.t))), f=fl, df=dfl,
                           b.full=dat$beta.new,
@@ -1040,17 +1015,17 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
           if(iters>500){break}
         }
       }
-      bls1 <- iters
-      bls.t <- new.t
       new.t <- as.numeric(new.t)
-      beta.final <- new.t*as.matrix(dat$beta.new) + (1-new.t) * as.matrix(beta.new)
+      beta.final <- new.t*as.matrix(dat$beta.new[-nrow(dat$beta.new),]) +
+        (1-new.t) * as.matrix(beta.new)
+
+      #add back in unpenalized y coefficient
+      beta.final <- rbind(beta.final, beta.y.coef)
 
       # Need to calculate eta.new and beta.new
       eta.new = t(predictor) %*% t(beta.final) + t(offsets[rownum,])
       beta.new <- beta.final
-      time5 <- Sys.time()
     }else{ ###Sparse Scores
-      time6 <- Sys.time()
       y.temp <- NULL
       x.temp <- list()
       for(k in 1:ncol(W)){
@@ -1060,32 +1035,29 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
       x.temp2 <- Matrix::bdiag(x.temp)
 
       if(sum(abs(as.vector(x.temp2)))!=0){
-        # if temp.x== all zeros, then what? force beta=0 and move on
+        # if temp.x== all zeros, then force beta=0 and move on
         r <- ncol(x.temp2)
         if(sum(abs(y.temp))==0){
           beta.sparse <- rep(0,r)
         }else{
-          # time5 <- Sys.time()
           fit.ridge <- glmnet::glmnet(as.matrix(x.temp2),y.temp,
-                              family="gaussian",
-                              alpha=0, nlambda=1, lambda=1,
-                              intercept = FALSE, standardize = TRUE,
-                              thresh=0.001)
-          #thresh=10^(-4))
-          #time6 <- Sys.time()
+                                      family="gaussian",
+                                      alpha=0, nlambda=1, lambda=1,
+                                      intercept = FALSE, standardize = FALSE,
+                                      thresh=0.001)
           beta.sparse <- as.numeric(fit.ridge$beta)
         }
-        time7 <- Sys.time()
         #Incase Rank>1, re-format matrix
         beta.new <- t(matrix(beta.sparse, ncol=dim(predictor)[2], byrow=F))
         #Part2: Backtracking line search
         fs <- function(x, y=Xtilde, z2=predictor, b.full=dat$beta.new,
                        b.sparse=beta.new, of=offsets,wt.vec2=wt.vec,
-                       famlist2=famlist,  ob2=ob, var01=var0){
+                       famlist2=famlist,  ob2=ob){
           b.full <- as.matrix(b.full)
           b.sparse <- as.matrix(b.sparse)
           Y.pred <-  of + z2 %*% t(x * t(b.full) + (1-x) * t(b.sparse))
 
+          penalty <- prod(dim(Y.pred)) * norm(matrix(t(x * t(b.full) + (1-x) * t(b.sparse))), type="F")^2
           #Calculate Likelihood
           data_ll2 <- NULL
           for(i in 1:(length(famlist2))){
@@ -1095,20 +1067,24 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
             n <- ncol(natX)
             if(is.null(n)){n <- 1}
             if(famlist2[[i]]$family=="gaussian"){
-              if(is.null(var01)){
-                sigma2 <- 1 #var(as.vector(X - Xfit))
-              }else{ sigma2 <- var01[i]}
-              ll <- -wt.vec2[i] * sum((X - Xfit)^2) / (2 * sigma2)
+              ll <- -wt.vec2[i] * sum((X - Xfit)^2) / 2
             }else if(famlist2[[i]]$family=="binomial"){
               ll <- wt.vec2[i]*(sum( X*log(Xfit) + (1-X)*log(1-Xfit)))
             }else if(famlist2[[i]]$family=="poisson"){
               fx <- log(factorial(X))
-              fx[which(fx==Inf)] <- -55.22 + 4.32*X[which(fx==Inf)]
+              high.obs <- which(fx==Inf)
+              if(length(high.obs)>0){
+                for(j in high.obs){
+                  temp <- log(factorial(170))
+                  for(m in 171:X[j]){temp <- temp + log(m)}
+                  fx[j] <- temp
+                }
+              }
               ll <- wt.vec2[i]*(sum( X*log(Xfit) - Xfit - fx))
             }
             data_ll2 <- c(data_ll2, -ll)
           }
-          return(sum(data_ll2))
+          return(sum(data_ll2)+penalty)
         }
         dfs <- function(x){
           if(x==1){h <- -0.001
@@ -1117,7 +1093,6 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
           return(e)}
         old.t<-1; new.t <-1; iters <- 0; t.vec <- NULL
         bb <- 0.5; run.backtrack=T; temp <- c(0.1,0.1)
-        #time7 <- Sys.time()
         if(dfs(0)>0){
           new.t=0
           run.backtrack = F
@@ -1141,15 +1116,12 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
             if(iters>500){break}
           }
         }
-        bls2 <- iters
-        bls.t <- new.t
         new.t <- as.numeric(new.t)
         beta.final <- new.t*as.matrix(dat$beta.new) + (1-new.t) * as.matrix(beta.new)
-        #time8 <- Sys.time()
+
         # Need to calculate eta.new and beta.new
         eta.new = predictor %*% beta.final + offsets[rownum,]
         beta.new <- beta.final
-        time8 <- Sys.time()
 
       }else{
         beta.new <- dat$beta.new * 0
@@ -1157,27 +1129,13 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
       }
     }
 
-    if(is.null(bls.t)==F){
-      dat$bls.t <- c(dat$bls.t, bls.t)
-    }
     dat$dev.old <- dat$dev.new
     dat$dev.new <- dev1
     dat$dev.all <- c(dat$dev.all, dev1)
-    temp <- dat$dev.new - dat$dev.old
+    dev.change <- as.numeric(as.character(dat$dev.new)) -  as.numeric(as.character(dat$dev.old))
     dat$iter <- dat$iter+1
-    #dat$eta.old <- dat$eta.new
     dat$beta.old <- dat$beta.new
-    #dat$eta.new <- eta1 <- eta.new
     dat$beta.new <- beta.new
-    dat$times <- dat$times + c(as.numeric(as.POSIXct(time2)-as.POSIXct(time1), units="secs"),
-                               bls1,
-                               as.numeric(as.POSIXct(time4)-as.POSIXct(time3), units="secs"),
-                               as.numeric(as.POSIXct(time5)-as.POSIXct(time4), units="secs"),
-                               bls2,
-                               as.numeric(as.POSIXct(time7)-as.POSIXct(time6), units="secs"),
-                               as.numeric(as.POSIXct(time8)-as.POSIXct(time7), units="secs"),
-                               as.numeric(as.POSIXct(time1)-as.POSIXct(Sys.time()), units="secs"))
-
 
     if(transpose){
       irlslist[[length(irlslist)]][rownum,] <- t(eta.new)
@@ -1188,7 +1146,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
     }
     irlslist[[list_num]] <- dat
 
-    if(converge & (temp < thresholds)){break}
+    if(converge & (dev.change < thresholds)){break}
   }
   return(irlslist)
 
@@ -1200,23 +1158,24 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
                              family.y = "gaussian",
                              rankJ=1, rankA=rep(1,length(X)),
                              weights=rep(1,length(X)+1),
-                             show.message=F, show.error=F,
-                             irls_iter=1, intercept=T, var00=NULL,
-                             sparse=F, lambda=1, orthogonal=NULL,
-                             initial="uninformative"){
-  timeA <- Sys.time()
+                             show.message=F, show.error=F,stop.lambda=0,
+                             intercept=T, irls_iter=1,
+                             sparse=F, lambda=1,
+                             initial="uninformative", sesJIVE.fit=NULL){
   #NOTES:
-  #  -irls_iter=NULL means that we run the IRLS algorithm until convergence
-  #             for each parameter, then repeat until likelihood converges.
   #  -Family must be "gaussian", "poisson", or "binomial"
   #  -initial must be "uninformative", "svd", "JIVE"
+  #set.seed(061821)
 
-  if(is.null(orthogonal)){ #If Sparse model, don't enforce orthogonality
-    orthogonal <- (sparse == F)
-  }
+  #If Sparse model, don't enforce orthogonality
+  orthogonal <- (sparse == F)
+
 
   ##Step 1: Run IRLS Algorithm ##
   diverged<-F
+  sm.lambda <- lg.lambda <- 0
+  min.pct.sparsity = 0.4
+  pct.sparsity <- NULL
   k <- length(X)
   obs <- list(); temp <- 0
   for(i in 1:k){
@@ -1279,9 +1238,7 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
                            dev.old = 0,
                            dev.new = 0,
                            iter=0,
-                           dev.all = 0,
-                           times= rep(0,8),
-                           bls.t=NULL)
+                           dev.all = 0)
   }
   m <- length(irls.list)+1
   fit <- m+1
@@ -1294,7 +1251,7 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
                          beta.old = X_temp,
                          beta.new = X_temp,
                          dev.old = 0, dev.new = 0,
-                         iter = 0, dev.all=0, times=rep(0,8))
+                         iter = 0, dev.all=0)
   if(intercept==F){
     irls.list[[m]]$beta.new <- as.matrix(irls.list[[m]]$beta.new * 0)
   }
@@ -1338,8 +1295,8 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
     Xnat.list <- list()
     for(i in 1:k){Xnat.list[[i]] <- Xnat.start[obs[[i]],]}
     jive.fit <- r.jive::jive(Xnat.list, rankJ=rankJ, rankA = rankA,
-                     center = F, scale = F, orthIndiv = F,
-                     method="given", showProgress=F)
+                             center = F, scale = F, orthIndiv = F,
+                             method="given", showProgress=F)
     #joint
     if(rankJ > 0){
       joint <-NULL
@@ -1363,11 +1320,26 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
       }
     }
 
+  }else if(initial=="no sparsity" & is.null(sesJIVE.fit)==F){
+    #joint
+    if(rankJ>0){
+      irls.list[[1]]$beta.old <- irls.list[[1]]$beta.new <- sesJIVE.fit$S_J
+    }
+    #Individual
+    temp.U <- NULL
+    for(i in 1:k){
+      if(rankJ>0){
+        temp.U <- rbind(temp.U, matrix(sesJIVE.fit$U_I[[i]]))
+      }
+      if(rankA[i] > 0){
+        irls.list[[(i+1)*2]]$beta.old <- irls.list[[(i+1)*2]]$beta.new <- rbind(as.matrix(sesJIVE.fit$W_I[[i]]),
+                                                                                sesJIVE.fit$theta2[[i]])
+        irls.list[[(i+1)*2-1]]$beta.old <- irls.list[[(i+1)*2-1]]$beta.new  <- as.matrix(sesJIVE.fit$S_I[[i]])
+      }
+    }
+    if(rankJ>0){ irls.list[[2]]$beta.old <- irls.list[[2]]$beta.new <- rbind(temp.U, sesJIVE.fit$theta1) }
   }
 
-  if(sparse){
-    scld <- T
-  }else{scld <- F}
   int <- rep(1,n)
   error.old <- error <- 0
   evec <- err.dat <- NULL
@@ -1380,11 +1352,7 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
     score_iter <- irls_iter
   }
 
-  timeB <- Sys.time()
-  time.dat <- c(as.numeric(as.POSIXct(timeB)-as.POSIXct(timeA), units="secs"),
-                rep(0, 10))
   for(iter in 1:max.iter){
-    timeC <- Sys.time()
     ###Joint Effect
     WS <- NULL; thetaS <- 0
     for(i in 1:k){ #Calculate Outcome
@@ -1403,61 +1371,69 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
                              outcome = out, Xtilde=X.tilde,
                              transpose = T, ob=obs, thresholds=threshold, famlist=fam.list,
                              eta1=t(irls.list[[fit]]),
-                             wt.vec=weights, var0=var00)
-      #temp.err2 <- optim.error(irls.list, famlist2=fam.list, kk2=k, ob2=obs,
-      #                         Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
-      #                         var0=var00, lambda2=lambda)[[1]]
-      #if(temp.err2-temp.err1< -10^-8){cat(paste0("iter:", iter, " mu: ", round(temp.err2-temp.err1,4), " \n"))}
-      #temp.err1 <- temp.err2
-
+                             wt.vec=weights)
     }
-    timeD <- Sys.time()
 
     #Optimize U
+    temp.err1 <- optim.error2(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
+                              Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
+                              lambda2=lambda)[[1]]
+    evec <- c(evec, temp.err1)
+    beta.old <- irls.list[[2]]$beta.new
     if(sparse & iter==1){
       #If sparse, set joint loadings to zero for sparsity
       irls.list[[2]]$beta.new <- irls.list[[2]]$beta.new * 0
       irls.list[[2]]$beta.old <- irls.list[[2]]$beta.old * 0
     }
-    off <-irls.list[[m]]$beta.new %*% int + rbind(WS,thetaS)
+    off <- matrix(irls.list[[m]]$beta.new) %*% int + rbind(WS,thetaS)
     irls.list <- irls_func(irls.list,predictor=irls.list[[1]]$beta.new, #Sj is known
                            num_iter = score_iter, list_num = 2, offsets=off,
                            outcome = out, transpose=T, thresholds=threshold, famlist=fam.list,
                            ob=obs, eta1=t(irls.list[[fit]]),
                            wt.vec=weights, score=F,
                            sparse=sparse, lambda=lambda,
-                           kk=k, Xtilde=X.tilde, old.err=temp.err1,
-                           var0=var00)
+                           kk=k, Xtilde=X.tilde)
     sum.U <- sum(abs(irls.list[[2]]$beta.new[-nrow(irls.list[[2]]$beta.new),]))
     if(as.numeric(sum.U)==0){
       irls.list[[2]]$beta.new[nrow(irls.list[[2]]$beta.new),] <- 0
     }
-    #temp.err2 <- optim.error(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
-    #                         Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
-    #                         var0=var00, lambda2=lambda)[[1]]
-    #if(temp.err2-temp.err1< -10^-8){cat(paste0("iter:", iter, " U: ", round(temp.err2-temp.err1,4), " \n"))}
-    #temp.err1 <- temp.err2
-    #print("Made U")
-    timeE <- Sys.time()
+    temp.err2 <- optim.error2(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
+                              Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
+                              lambda2=lambda)[[1]]
+    if(is.na(as.numeric(as.character(temp.err2)))){
+      irls.list[[2]]$beta.new <- beta.old
+    }else if(as.numeric(as.character(temp.err2))-temp.err1< -1 & show.message){
+      cat(paste0("Warning: U wanted to diverge iter ", iter))
+      irls.list[[2]]$beta.new <- beta.old
+    }else{
+      temp.err1 <- as.numeric(as.character(temp.err2))
+    }
+    evec <- c(evec, temp.err1)
 
     #Optimize Sj
+    beta.old <- irls.list[[1]]$beta.new
     irls.list <- irls_func(irls.list,predictor=irls.list[[2]]$beta.new, #U is known
                            num_iter = score_iter, list_num = 1, offsets=off,
                            outcome = out, thresholds=threshold, famlist=fam.list,
                            transpose=F, ob=obs, eta1=irls.list[[fit]], Xtilde=X.tilde,
-                           wt.vec=weights, scale=scld, score=T, sparse=sparse, var0=var00,
+                           wt.vec=weights, score=T, sparse=sparse,
                            full.obs=obs)
-    #temp.err2 <- optim.error(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
-    #                         Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
-    #                         var0=var00, lambda2=lambda)[[1]]
-    #if(temp.err2-temp.err1< -10^-8){print(paste0("iter:", iter, " Sj: ", temp.err2-temp.err1))}
-    #temp.err1 <- temp.err2
-    #print("Made Sj")
-    timeF <- Sys.time()
-    timeG <- timeH <- list()
+    temp.err2 <- optim.error2(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
+                              Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
+                              lambda2=lambda)[[1]]
+    if(is.na(as.numeric(as.character(temp.err2)))){
+      irls.list[[1]]$beta.new <- beta.old
+    }else if(as.numeric(as.character(temp.err2))-temp.err1< -1 & show.message){
+      cat(paste0("Warning: Sj wanted to diverge iter ", iter))
+      irls.list[[1]]$beta.new <- beta.old
+    }else{
+      temp.err1 <- as.numeric(as.character(temp.err2))
+    }
+    evec <- c(evec, temp.err1)
+
     ###Individual Effect
     for(i in 1:k){
-      timeG[[i]] <- Sys.time()
+
       if(sparse & iter==1){
         irls.list[[(i+1)*2]]$beta.old <- irls.list[[(i+1)*2]]$beta.new <-irls.list[[(i+1)*2]]$beta.new * 0
       }
@@ -1470,11 +1446,12 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
         }
       }
       out <- X.tilde
-      off <- irls.list[[m]]$beta.new %*% int + irls.list[[2]]$beta.new %*% irls.list[[1]]$beta.new
+      off <- matrix(irls.list[[m]]$beta.new)  %*% int + irls.list[[2]]$beta.new %*% irls.list[[1]]$beta.new
       off[nrow(off),] <- off[nrow(off),] + thetaS
 
 
       #Optimize Wi
+      beta.old <- irls.list[[2*i+2]]$beta.new
       irls.list <- irls_func(irls.list,predictor=irls.list[[2*i+1]]$beta.new, #Si is known
                              num_iter = score_iter,
                              list_num = (2*i+2), outcome = out,
@@ -1483,60 +1460,89 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
                              thresholds=threshold, famlist=fam.list,
                              ob=obs, eta1=t(irls.list[[fit]]),
                              wt.vec=weights, sparse=sparse, lambda=lambda,
-                             kk=k, Xtilde=X.tilde, old.err=temp.err1,
-                             var0=var00)
+                             kk=k, Xtilde=X.tilde)
       sum.W <- sum(abs(irls.list[[2*i+2]]$beta.new[-nrow(irls.list[[2*i+2]]$beta.new),]))
-      if(as.numeric(sum.W)==0){
-        irls.list[[2*i+2]]$beta.new[nrow(irls.list[[2*i+2]]$beta.new),] <- 0
+      if(is.na(as.numeric(sum.W))==F){
+        if(as.numeric(sum.W)==0){
+          irls.list[[2*i+2]]$beta.new[nrow(irls.list[[2*i+2]]$beta.new),] <- 0
+        }}
+      temp.err2 <- optim.error2(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
+                                Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
+                                lambda2=lambda)[[1]]
+      #print(temp.err2)
+      if(is.na(as.numeric(as.character(temp.err2)))){
+        irls.list[[2*i+2]]$beta.new <- beta.old
+      }else if(as.numeric(as.character(temp.err2))-temp.err1< -1 & show.message){
+        cat(paste0("Warning: W", i, "wanted to diverge iter ", iter))
+        irls.list[[2*i+2]]$beta.new <- beta.old
+      }else{
+        temp.err1 <- as.numeric(as.character(temp.err2))
       }
-      #temp.err2 <- optim.error(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
-      #                         Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
-      #                         var0=var00, lambda2=lambda)[[1]]
-      #if(temp.err2-temp.err1< -10^-8){cat(paste0("iter:", iter, " W", i, ": ",round(temp.err2-temp.err1,4), " \n"))}
-      #temp.err1 <- temp.err2
-      #print("Made Wi")
-      timeH[[i]] <- Sys.time()
+      evec <- c(evec, temp.err1)
 
       #Optimize Si
       keep.eta <- irls.list[[fit]]
       keep.obs <- c(obs[[i]], obs[[k+1]])
       obs.temp <- list(1:length(obs[[i]]), length(obs[[i]])+1)
       irls.list[[fit]] <- irls.list[[fit]][keep.obs,]
+      beta.old <- irls.list[[2*i+1]]$beta.new
       irls.list <- irls_func(irls.list, predictor=irls.list[[2*i+2]]$beta.new,
                              num_iter = score_iter, list_num = (2*i+1), outcome = out[keep.obs,],
                              offsets=off[keep.obs,], Xtilde=X.tilde[keep.obs,],
                              thresholds=threshold, famlist=list(fam.list[[i]], fam.list[[k+1]]),
                              transpose=F, ob=obs.temp, eta1=irls.list[[fit]],
                              wt.vec=weights[c(i, k+1)], sparse=sparse, score=sparse,
-                             var0=var00[c(i,k+1)], full.obs=obs)
+                             full.obs=obs)
       keep.eta[keep.obs,] <- irls.list[[fit]]
       irls.list[[fit]] <- keep.eta
-      #temp.err2 <- optim.error(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
-      #                         Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
-      #                         var0=var00, lambda2=lambda)[[1]]
-      #if(temp.err2-temp.err1< -10^-8){cat(paste0("iter:", iter, " S", i, ": ", round(temp.err2-temp.err1,4), " \n"))}
-      #temp.err1 <- temp.err2
-      #print("Made Si")
+      temp.err2 <- optim.error2(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
+                                Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
+                                lambda2=lambda)[[1]]
+      if(is.na(as.numeric(as.character(temp.err2)))){
+        irls.list[[2*i+1]]$beta.new <- beta.old
+      }else if(as.numeric(as.character(temp.err2))-temp.err1< -1 & show.message){
+        cat(paste0("Warning: S", i, "wanted to diverge iter ", iter))
+        irls.list[[2*i+1]]$beta.new <- beta.old
+      }else{
+        temp.err1 <- as.numeric(as.character(temp.err2))
+      }
+      evec <- c(evec, temp.err1)
     }
-    timeI <- Sys.time()
 
-    time.dat[2:8] <- time.dat[2:8] +
-      c(as.numeric(as.POSIXct(timeD)-as.POSIXct(timeC), units="secs"),
-        as.numeric(as.POSIXct(timeE)-as.POSIXct(timeD), units="secs"),
-        as.numeric(as.POSIXct(timeF)-as.POSIXct(timeE), units="secs"),
-        #as.numeric(as.POSIXct(timeG)-as.POSIXct(timeF), units="secs"),
-        as.numeric(as.POSIXct(timeH[[1]])-as.POSIXct(timeG[[1]]), units="secs"),
-        as.numeric(as.POSIXct(timeG[[2]])-as.POSIXct(timeH[[1]]), units="secs"),
-        as.numeric(as.POSIXct(timeH[[2]])-as.POSIXct(timeG[[2]]), units="secs"),
-        as.numeric(as.POSIXct(timeI)-as.POSIXct(timeH[[2]]), units="secs"))
-
+    #Record Sparsity
+    if(sparse){
+      pct.sparsity <- NULL
+      for(i in 2*(1:(k+1))){
+        #Across all joint/indiv loadings
+        pct.sparsity <- c(pct.sparsity, as.vector(unlist(irls.list[[i]]$beta.new)))
+      }
+      pct.sparsity <- length(which(abs(pct.sparsity)<0.00000001)) / length(pct.sparsity)
+      if(is.na(pct.sparsity)){pct.sparsity=0}
+      if(pct.sparsity >= min.pct.sparsity & pct.sparsity != 1){
+        sm.lambda <- lg.lambda <- 0
+      }
+      if(pct.sparsity < min.pct.sparsity){
+        sm.lambda <- sm.lambda + 1
+        if(stop.lambda>0 & sm.lambda>5){
+          sm.lambda <- T; lg.lambda<-F
+          if(show.message){cat(paste0("Warning: Lambda=", lambda, " didn't induce enough sparsity \n"))}
+          break()}
+      }else if(pct.sparsity == 1){
+        lg.lambda <- lg.lambda + 1
+        if(stop.lambda>0 & lg.lambda>5){
+          sm.lambda <- F; lg.lambda<-T
+          if(show.message){cat(paste0("Warning: Lambda=", lambda, " caused intercept-only model \n"))}
+          break()
+        }
+      }
+    }
 
     #Figure out the error
     error <- optim.error2(irlslist2 = irls.list, famlist2=fam.list, kk2=k, ob2=obs,
-                         Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
-                         var0=var00, lambda2=lambda)
+                          Xtilde2=X.tilde, wt.vec2=weights, sparse=sparse,
+                          lambda2=lambda)
     err.dat <- rbind(err.dat, error$data_lik)
-    evec <- c(evec, error$log_lik)
+    evec <- c(evec, error$log_lik, "new iter")
     error <- error$log_lik
     if(show.error){print(paste0("Iter: ", iter, " Error: ", round(error,4)))}
     if(abs(error.old-error) < threshold){
@@ -1548,19 +1554,28 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
       break
     }else if(iter>10){
       elength <- length(evec)
-      if(max(evec[(elength-8):elength] - evec[(elength-9):(elength-1)])<0 &
-         diverged==F){
-        diverged<-T
-        if(show.message){cat(paste0("Warning: Diverging at ", iter, " iterations \n"))}
-        #  break
-      }
     }
     #If didn't converge, prep for another loop
     error.old <- error
   }
 
+  if(sparse){
+    if(pct.sparsity == 1){
+      sm.lambda <- F
+      lg.lambda<-T
+      if(show.message){cat(paste0("Warning: Lambda=", lambda, " caused intercept-only model \n"))}
+    }else if(pct.sparsity < min.pct.sparsity){
+      sm.lambda <- T
+      lg.lambda<-F
+      if(show.message){cat(paste0("Warning: Lambda=", lambda, " didn't induce enough sparsity \n"))}
+    }else{
+      sm.lambda <- F
+      lg.lambda<-F
+    }
+  }
+
   ##Step 2: Save results ##
-  U.norm <- W.norm <- 0
+  U.norm <- 0; W.norm <- list()
   muu <- irls.list[[m]]$beta.new
   Sj <- irls.list[[1]]$beta.new
   U <- irls.list[[2]]$beta.new
@@ -1571,25 +1586,26 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
   }
 
   if(orthogonal==F){
-    ##New scaling (7/13/21)
     muu_new <- muu
     U.norm <- norm(U, type="F")
     if(U.norm != 0){
       U_new <- U / U.norm
+      Sj_new <- Sj * U.norm
     }else{
       U_new <- U
+      Sj_new <- Sj
     }
-    Sj_new <- Sj * U.norm
     W_new <- Si_new <- list()
     W.norm <- list()
     for(i in 1:k){
       W.norm[[i]] <- norm(W[[i]], type="F")
       if(W.norm[[i]] != 0){
         W_new[[i]] <- W[[i]] / norm(W[[i]], type="F")
+        Si_new[[i]] <- Si[[i]] * norm(W[[i]], type="F")
       }else{
         W_new[[i]] <- W[[i]]
+        Si_new[[i]] <- Si[[i]]
       }
-      Si_new[[i]] <- Si[[i]] * norm(W[[i]], type="F")
     }
 
   }else{
@@ -1600,7 +1616,7 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
     if(rankJ==0){
       vi <- diag(rep(1,n))
     }else{
-      X.svd <- svd(U %*% Sj, nu=rankJ, nv=rankJ)
+        X.svd <- svd(U %*% Sj, nu=rankJ, nv=rankJ)
       vi <- diag(rep(1,n)) -  X.svd$v %*% t(X.svd$v)
     }
     for(i in 1:k){
@@ -1627,6 +1643,7 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
 
       temp.svd <- svd(J_temp-as.matrix(muu_new) %*% int, nu=rankJ, nv=rankJ)
 
+
     U_new <- temp.svd$u
     Sj_new <- diag(temp.svd$d[1:rankJ],ncol=rankJ)%*% t(temp.svd$v)
   }
@@ -1643,18 +1660,6 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
     }
   }
 
-  #Run times
-  run.times <- NULL
-  bls.values <- list()
-  for(i in 1:(length(irls.list)-1)){
-    run.times <- rbind(run.times, c(irls.list[[i]]$param, irls.list[[i]]$iter, irls.list[[i]]$times))
-    bls.values[[i]] <- c(irls.list[[i]]$param, irls.list[[i]]$iter, irls.list[[i]]$bls.t)
-  }
-  run.times <- as.data.frame(run.times)
-  names(run.times) <- c("Parameter", "Total IRLS Iters", "IRLS setup time",
-                        "BLS1", "glmnet1 time", "BLS1 time",
-                        "BLS2", "glmnet2 time", "BLS2 time", "total time")
-
   #Step 3: Export the results
   U_i <- W_i <- theta_2 <- muu_final <- list()
   natX <- list(); thetaS <- 0
@@ -1665,6 +1670,7 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
     theta_2[[i]] <- W_new[[i]][nrow(W_new[[i]]),]
     natX[[i]] <- as.matrix(muu_new[obs[[i]]]) %*% int + U_i[[i]] %*% Sj_new + W_i[[i]] %*% Si_new[[i]]
     thetaS <- thetaS + theta_2[[i]] %*% Si_new[[i]]
+    #W.norm[[i]] <- norm(as.matrix(W_i[[i]]), type="F")
   }
   theta_1 <-  U_new[obs[[k+1]],]
   natY <- muu_new[obs[[k+1]]] %*% int + theta_1 %*% Sj_new + thetaS
@@ -1675,28 +1681,32 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
   }else{
     lambdas <- NULL
   }
-  timeJ <- Sys.time()
-  time.dat[9] <- as.numeric(as.POSIXct(timeJ)-as.POSIXct(timeA), units="secs")
 
-  result <- list(S_J=Sj_new, S_I=Si_new, U_I=U_i, W_I=W_i,
-                 theta1=theta_1, theta2=theta_2, intercept=muu_final,
-                 natX=natX, natY=natY,
-                 error=error, all.error=evec,
-                 iterations = iter, rankJ=rankJ, rankA=rankA,
-                 family.x=family.x, family.y=family.y,
-                 diverged=diverged, err.dat=err.dat,
-                 weights=weights, U.norm=U.norm, W.norm=W.norm,
-                 lambda=lambdas, run.time=run.times, time.dat=time.dat,
-                 vars=var00, bls.values=bls.values)
+  bad.lambda=0
+  if(sm.lambda){
+    bad.lambda=-1
+  }else if(lg.lambda){
+    bad.lambda=1
+  }
 
-  class(result) <- "sesJIVE"
-  return(result)
+  output <- list(S_J=Sj_new, S_I=Si_new, U_I=U_i, W_I=W_i,
+       theta1=theta_1, theta2=theta_2, intercept=muu_final,
+       natX=natX, natY=natY,
+       error=error, all.error=evec,
+       iterations = iter, rankJ=rankJ, rankA=rankA,
+       family.x=family.x, family.y=family.y,
+       weights=weights, U.norm=U.norm, W.norm=W.norm,
+       lambda=lambdas,
+       bad.lambda=bad.lambda, pct.sparsity=pct.sparsity)
+  class(output) <- "sesJIVE"
+  return(output)
 }
 
 
 
 find.wts <- function(e, YY, XX, max.iters,
-                     folds,
+                     folds, sparse2,
+                     lambda2,
                      family.xx,
                      family.yy, intercepts,
                      rankJJ, rankAA, initials){
@@ -1718,15 +1728,22 @@ find.wts <- function(e, YY, XX, max.iters,
                        (1-e) * sub.train.y)
     temp.norm <- norm(temp.mat, type="F")
 
+    if("poisson" %in% family.xx){
+      temp.scale <- 1000
+    }else{
+      temp.scale <- 50000
+    }
+
     fit1 <- NULL
     attempt <- 0
     while( is.null(fit1) && attempt <= 3 ) {
       attempt <- attempt + 1
       try(
         fit1 <- sesJIVE.converge(sub.train.x, sub.train.y,
-                                 max.iter=max.iters, threshold = temp.norm/50000,
+                                 max.iter=max.iters, threshold = temp.norm/temp.scale,
                                  family.x = family.xx,
                                  family.y = family.yy,
+                                 sparse=sparse2, lambda=lambda2,
                                  rankJ=rankJJ, rankA=rankAA,
                                  weights=c(rep(e,length(XX)), 1-e),
                                  show.message=F, show.error=F, initial = initials,
@@ -1741,200 +1758,85 @@ find.wts <- function(e, YY, XX, max.iters,
   }
 
   #Record Test Error (using validation set)
-  fit.dev <- mean(err.fold, na.rm = T)
-  fit.dev2 <- sqrt(stats::var(err.fold, na.rm = T))
+  fit.dev <- mean(as.numeric(as.character(err.fold)), na.rm = T)
+  fit.dev2 <- sqrt(stats::var(as.numeric(as.character(err.fold)), na.rm = T))
   return(c(e, fit.dev, fit.dev2))
 }
 
 
-find.lambda <- function(lambda, YY, XX, method="CV", max.iters,
-                        folds, weights,
-                        family.xx,
-                        family.yy, intercepts,
-                        rankJJ, rankAA, ortho,
-                        var0=NULL, initials){
+find.lambda <-  function(lambda, YY, XX, max.iters,
+                         folds, weights,
+                         family.xx,
+                         family.yy, intercepts,
+                         rankJJ, rankAA,
+                         initials){
 
-  if(method=="CV"){
-    err.fold <- NA
-    for(i in 1:5){
-      #Get train/test sets
-      sub.train.x <- sub.test.x <- list()
-      sub.train.y <- YY[-folds[[i]]]
-      sub.test.y <- YY[folds[[i]]]
-      for(j in 1:length(XX)){
-        sub.train.x[[j]] <- XX[[j]][,-folds[[i]]]
-        sub.test.x[[j]] <- XX[[j]][,folds[[i]]]
-      }
-      fit1 <- NULL
-      if(lambda>0){
-        attempt <- 0
-        while( is.null(fit1) && attempt <= 5 ) {
-          attempt <- attempt + 1
-          try(
-            fit1 <- sesJIVE.converge(sub.train.x, sub.train.y,
-                                     max.iter=max.iters, threshold = 0.001,
-                                     family.x = family.xx,
-                                     family.y = family.yy,
-                                     rankJ=rankJJ, rankA=rankAA,
-                                     weights=weights, lambda=lambda,
-                                     sparse=T, orthogonal=ortho,initial = initials,
-                                     show.message=F, show.error=F, var00=var0,
-                                     irls_iter=attempt, intercept=intercepts)
-          )
-        }
-      }else{
-        attempt <- 0
-        while( is.null(fit1) && attempt <= 5 ) {
-          attempt <- attempt + 1
-          try(
-            fit1 <- sesJIVE.converge(sub.train.x, sub.train.y,
-                                     max.iter=max.iters, threshold = 0.001,
-                                     family.x = family.xx,
-                                     family.y = family.yy,
-                                     rankJ=rankJJ, rankA=rankAA,
-                                     weights=weights,
-                                     sparse=F,initial = initials,
-                                     show.message=F, show.error=F,
-                                     irls_iter=attempt, intercept=intercepts)
-          )
-        }
-        #get var
-        var0 <- NULL
-        for(i in 1:length(sub.train.x)){
-          if(family.xx[i]=="gaussian"){
-            var0 <- c(var0, sum((sub.train.x[[i]]-fit1$natX[[i]])^2)/
-                        (length(as.vector(fit1$natX[[i]]))-1))
-          }else{ var0 <- c(var0, NA)}
-        }
-        if(family.yy=="gaussian"){
-          var0 <- c(var0, sum((sub.train.y-fit1$natY)^2)/
-                      (length(as.vector(fit1$natY))-1))
-        }else{ var0 <- c(var0, NA)}
-
-      }
-      #Record Error for fold
-      fit_test1 <- stats::predict(fit1, sub.test.x, show.message = F)
-      fit.dev <- get_deviance(sub.test.y, fit_test1$Ynat,
-                              family.yy=family.yy)
-      err.fold <- c(err.fold, fit.dev)
+  err.fold <- bad.lamb <- sparsity <- NA
+  for(i in 1:5){
+    #Get train/test sets
+    sub.train.x <- sub.test.x <- list()
+    sub.train.y <- YY[-folds[[i]]]
+    sub.test.y <- YY[folds[[i]]]
+    for(j in 1:length(XX)){
+      sub.train.x[[j]] <- XX[[j]][,-folds[[i]]]
+      sub.test.x[[j]] <- XX[[j]][,folds[[i]]]
     }
-
-    #Record Test Error (using validation set)
-    fit.dev <- mean(err.fold, na.rm = T)
-    fit.se <- sqrt(stats::var(err.fold, na.rm = T)/5)
-    lambda2 <- c(lambda, fit.dev, fit.se, var0)
-    return(lambda2)
-
-  }else if(method=="BIC"){
-    if(lambda > 0){
-      fit1 <- sesJIVE.converge(XX, YY,
-                               max.iter=max.iters, threshold = 0.001,
-                               family.x = family.xx,
-                               family.y = family.yy,
-                               rankJ=rankJJ, rankA=rankAA,
-                               weights=weights, lambda=lambda,
-                               sparse=T, orthogonal=ortho,initial = initials,
-                               show.message=F, show.error=F, var00=var0,
-                               irls_iter=1, intercept=intercepts)
+    fit1 <- NULL
+    if(lambda>0){
+      attempt <- 0
+      while( is.null(fit1) && attempt <= 5 ) {
+        attempt <- attempt + 1
+        try(
+          fit1 <- sesJIVE.converge(sub.train.x, sub.train.y,
+                                   max.iter=max.iters, threshold = 0.001,
+                                   family.x = family.xx,
+                                   family.y = family.yy, stop.lambda = 1,
+                                   rankJ=rankJJ, rankA=rankAA,
+                                   weights=weights, lambda=lambda,
+                                   sparse=T, initial = initials,
+                                   show.message=F, show.error=F,
+                                   irls_iter=attempt, intercept=intercepts)
+        )
+      }
     }else{
-      fit1 <- sesJIVE.converge(XX, YY,
-                               max.iter=max.iters, threshold = 0.001,
-                               family.x = family.xx,
-                               family.y = family.yy,
-                               rankJ=rankJJ, rankA=rankAA,
-                               weights=weights,
-                               sparse=F,initial = initials,
-                               show.message=F, show.error=F,
-                               irls_iter=1, intercept=intercepts)
-      #get var
-      var0 <- NULL
-      for(i in 1:length(XX)){
-        if(family.xx[i]=="gaussian"){
-          var0 <- c(var0, sum((XX[[i]]-fit1$natX[[i]])^2)/
-                      (length(as.vector(fit1$natX[[i]]))-1))
-        }else{ var0 <- c(var0, NA)}
+      attempt <- 0
+      while( is.null(fit1) && attempt <= 5 ) {
+        attempt <- attempt + 1
+        try(
+          fit1 <- sesJIVE.converge(sub.train.x, sub.train.y,
+                                   max.iter=max.iters, threshold = 0.001,
+                                   family.x = family.xx,
+                                   family.y = family.yy,
+                                   rankJ=rankJJ, rankA=rankAA,
+                                   weights=weights,
+                                   sparse=F,initial = initials,
+                                   show.message=F, show.error=F,
+                                   irls_iter=attempt, intercept=intercepts)
+        )
       }
-      if(family.yy=="gaussian"){
-        var0 <- c(var0, sum((YY-fit1$natY)^2)/
-                    (length(as.vector(fit1$natY))-1))
-      }else{ var0 <- c(var0, NA)}
     }
-    ll <- fit1$err.dat[nrow(fit1$err.dat),]
-    n <- length(YY)
-    ss <- n.total <- 0
-    for(i in 1:length(XX)){
-      ss <- ss + length(which(as.vector(fit1$U_I[[i]]!=0))) +
-        length(which(as.vector(fit1$W_I[[i]]!=0))) +
-        length(which(as.vector(fit1$S_I[[i]]!=0)))
-      n.total <- n.total + length(as.vector(fit1$U_I[[i]])) +
-        length(as.vector(fit1$W_I[[i]])) +
-        length(as.vector(fit1$S_I[[i]]))
-    }
-    ss <- ss + sum(fit1$rankJ, fit1$rankA) + length(which(as.vector(fit1$S_J!=0)))
-    n.total <- n.total + sum(fit1$rankJ, fit1$rankA) + length(as.vector(fit1$S_J))
-    #Formula based on Meta-analysis based variable selection
-    #        by Li et al (2014)
-    bic.vec <- -2 * ll + ss * log(n.total)
-    lambda2 <- c(lambda, sum(bic.vec), var0)
-    return(lambda2)
-
-  }else if(method=="AIC"){
-    if(lambda > 0){
-      fit1 <- sesJIVE.converge(XX, YY,
-                               max.iter=max.iters, threshold = 0.001,
-                               family.x = family.xx,
-                               family.y = family.yy,
-                               rankJ=rankJJ, rankA=rankAA,
-                               weights=weights, lambda=lambda,
-                               sparse=T, orthogonal=ortho,initial = initials,
-                               show.message=F, show.error=F,var00=var0,
-                               irls_iter=1, intercept=intercepts)
-    }else{
-      fit1 <- sesJIVE.converge(XX, YY,
-                               max.iter=max.iters, threshold = 0.001,
-                               family.x = family.xx,
-                               family.y = family.yy,
-                               rankJ=rankJJ, rankA=rankAA,
-                               weights=weights,
-                               sparse=F,initial = initials,
-                               show.message=F, show.error=F,
-                               irls_iter=1, intercept=intercepts)
-      #get var
-      var0 <- NULL
-      for(i in 1:length(XX)){
-        if(family.xx[i]=="gaussian"){
-          var0 <- c(var0, sum((XX[[i]]-fit1$natX[[i]])^2)/
-                      (length(as.vector(fit1$natX[[i]]))-1))
-        }else{ var0 <- c(var0, NA)}
-      }
-      if(family.yy=="gaussian"){
-        var0 <- c(var0, sum((YY-fit1$natY)^2)/
-                    (length(as.vector(fit1$natY))-1))
-      }else{ var0 <- c(var0, NA)}
-    }
-
-    ll <- fit1$err.dat[nrow(fit1$err.dat),]
-    ss <- 0
-    for(i in 1:length(XX)){
-      ss <- ss + length(which(as.vector(fit1$U_I[[i]]!=0))) +
-        length(which(as.vector(fit1$W_I[[i]]!=0))) +
-        length(which(as.vector(fit1$S_I[[i]]!=0)))
-    }
-    ss <- ss + sum(fit1$rankJ, fit1$rankA) + length(which(as.vector(fit1$S_J!=0)))
-    #Formula based on Meta-analysis based variable selection
-    #        by Li et al (2014)
-    bic.vec <- -2 * ll + ss * 2
-    lambda2 <- c(lambda, sum(bic.vec), var0)
-    return(lambda2)
-
-
+    #Record Error for fold
+    fit_test1 <- stats::predict(fit1, sub.test.x, show.message = F)
+    fit.dev <- get_deviance(sub.test.y, fit_test1$Ynat,
+                            family.yy=family.yy)
+    err.fold <- c(err.fold, fit.dev)
+    bad.lamb <- c(bad.lamb, fit1$bad.lambda)
+    sparsity <- c(sparsity, fit1$pct.sparsity)
   }
+
+  #Record Test Error (using validation set)
+  fit.dev <- mean(err.fold, na.rm = T)
+  fit.se <- sqrt(stats::var(err.fold, na.rm = T)/5)
+  bad.lambda <- mean(bad.lamb, na.rm = T)
+  pct.sparsity <- mean(sparsity, na.rm = T)
+  lambda2 <- c(lambda, fit.dev, bad.lambda, pct.sparsity)
+  return(lambda2)
 }
 
 
 sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
-                          wt.vec){
-  #Needed for predict.sesJIVE() function
+                          wt.vec, train2, theta1=NULL, theta2=NULL){
+  #Needed for sesJIVE.predict
   Y.pred <- NULL
   for(i in 1:k){
     intercept <- as.matrix(muu[[i]]) %*% t(as.matrix(rep(1,ncol(as.matrix(Sj)))))
@@ -1942,10 +1844,18 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
     A <- as.matrix(W[[i]]) %*% as.matrix(Si[[i]])
     Y.pred <- rbind(Y.pred, family.x[[i]]$linkinv(intercept + J + A))
   }
+  if(train){
+    temp <-muu[[k+1]] + as.matrix(theta1) %*% as.matrix(Sj)
+    for(i in 1:k){
+      temp <- temp + as.matrix(theta2[[i]]) %*% as.matrix(Si[[i]])
+    }
+    Y.pred <- rbind(Y.pred, temp)
+  }
 
   #Calculate Likelihood
+  k2 <- ifelse(train, k+1, k)
   data_ll2 <- NULL
-  for(i in 1:(k)){
+  for(i in 1:k2){
     X <- Xtilde[ob2[[i]],]
     natX <- Y.pred[ob2[[i]],]
     Xfit <- natX #family.x[[i]]$linkinv(natX)
@@ -1957,16 +1867,14 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
     }else if(family.x[[i]]$family=="binomial"){
       ll <- wt.vec[i]*(sum( X*log(Xfit) + (1-X)*log(1-Xfit)))
     }else if(family.x[[i]]$family=="poisson"){
-      fx <- as.numeric(log(factorial(X)))
-      if(length(which(fx==Inf))>0){
-        min.x <- min(X[which(fx==Inf)])
-        for(j in 0:(min.x-1)){
-          temp <- temp+log(X[which(fx==Inf)]-j)
+      fx <- log(factorial(X))
+      high.obs <- which(fx==Inf)
+      if(length(high.obs)>0){
+        for(j in high.obs){
+          temp <- log(factorial(170))
+          for(m in 171:X[j]){temp <- temp + log(m)}
+          fx[j] <- temp
         }
-        fx[which(fx==Inf)] <- temp + log(factorial(X-min.x))
-      }
-      if(length(which(fx==Inf))>0){
-        fx[which(fx==Inf)] <- -55.22 + 4.32*X[which(fx==Inf)]
       }
       ll <- wt.vec[i]*(sum(as.numeric( X*log(Xfit) - Xfit - fx),
                            rm.na=T))

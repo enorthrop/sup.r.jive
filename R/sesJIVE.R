@@ -223,6 +223,7 @@ sesJIVE <- function(X, Y, rankJ = 1, rankA=rep(1,length(X)),wts=NULL, max.iter=1
                    family.yy = family.y, intercepts=intercept,
                    rankJJ=rankJ, rankAA=rankA), silent = T)
     }
+    test.best <- as.data.frame(test.best)
     if(show.lambda){print(test.best)}
     doParallel::registerDoParallel(cores=1)
     best.wt <- which(test.best[,2] == min(test.best[,2], na.rm=T))
@@ -1750,10 +1751,14 @@ find.wts <- function(e, YY, XX, max.iters,
                                  irls_iter=attempt, intercept=intercepts)
       )
     }
+    if(is.null(fit1)){
+      fit.dev <- NA
+    }else{
     #Record Error for fold
     fit_test1 <- stats::predict(fit1, sub.test.x, show.message=F)
     fit.dev <- get_deviance(sub.test.y, fit_test1$Ynat,
                             family.yy=family.yy)
+    }
     err.fold <- c(err.fold, fit.dev)
   }
 

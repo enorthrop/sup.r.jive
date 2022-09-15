@@ -1849,7 +1849,7 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
     A <- as.matrix(W[[i]]) %*% as.matrix(Si[[i]])
     Y.pred <- rbind(Y.pred, family.x[[i]]$linkinv(intercept + J + A))
   }
-  if(train){
+  if(train2){
     temp <-muu[[k+1]] + as.matrix(theta1) %*% as.matrix(Sj)
     for(i in 1:k){
       temp <- temp + as.matrix(theta2[[i]]) %*% as.matrix(Si[[i]])

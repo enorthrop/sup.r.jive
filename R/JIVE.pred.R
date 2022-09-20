@@ -289,7 +289,7 @@ summary.JIVEpred <- function(object, ...){
   for(i in 1:k){
     temp <- j
     for(ii in 1:k){
-      if(i != ii){temp <- temp + a[[i]]}
+      if(ii != i){temp <- temp + a[[ii]]}
     }
     sse_partial <- c(sse_partial, sum((object$data.matrix$Y - temp)^2))
   }

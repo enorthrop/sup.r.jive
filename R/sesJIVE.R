@@ -395,7 +395,7 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
     theta1 <- object$theta1
   }else{
     Sj <- matrix(rep(0,rankJ*n), ncol = n)
-    theta1=NULL
+    theta1=rep(0, rankJ)
   }
 
   if(sparse){
@@ -419,7 +419,7 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
       theta2[[i]] <- object$theta2[[i]]
     }else{
       Si[[i]] <- matrix(rep(0,rankA[[i]]*n), ncol=n)
-      theta2[[i]] <- 0
+      theta2[[i]] <- rep(0, rankA[[i]])
     }
   }
   if(train){
@@ -482,8 +482,8 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
   eta.temp <- NULL; WS <- 0
   for(i in 1:k){
     t1 <- mu[[i]] %*% t(as.matrix(rep(1,ncol(as.matrix(Sj))))) +
-      U[[i]] %*% matrix(Sj, ncol=n) + W[[i]] %*% Si[[i]]
-    WS <-  WS + theta2[[i]] %*% Si[[i]]
+      U[[i]] %*% matrix(Sj, ncol=n) + W[[i]] %*% matrix(Si[[i]], ncol=n)
+    WS <-  WS + matrix(theta2[[i]], ncol=length(theta2[[i]])) %*% matrix(Si[[i]], ncol=n)
     eta.temp <- rbind(eta.temp, t1)
   }
   if(train){
@@ -515,7 +515,7 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
       mu.mat <- rbind(mu.mat, as.matrix(mu[[i]]))
       U.mat <- rbind(U.mat, as.matrix(U[[i]]))
       A <- rbind(A, as.matrix(W[[i]]) %*% as.matrix(Si[[i]]))
-      WS <- as.matrix(theta2[[i]]) %*% as.matrix(Si[[i]])
+      WS <- matrix(theta2[[i]], ncol=length(theta2[[i]]))  %*% as.matrix(Si[[i]])
     }
     if(train){
       mu.mat <- rbind(mu.mat, as.matrix(mu[[k+1]]))
@@ -666,7 +666,89 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
 #' @return Summary measures
 #' @export
 summary.sesJIVE <- function(object, ...){
-  print("Summarizing My World")
+  k <- length(object$data$X)
+  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
+                          Rank = c(object$rankJ, object$rankA))
+
+
+  #cat("\n $Variance \n")
+  var.table <- NULL; ThetaS <- 0
+  for (i in 1:k) {
+    j <- object$U_I[[i]] %*% object$S_J
+    a <- object$W_I[[i]] %*% object$S_I[[i]]
+    ssj <- norm(j, type="f")^2
+    ssi <- norm(a, type="f")^2
+    sse <- norm(object$data$X[[i]] -j-a, type="f")^2
+    sst <- norm(object$data$X[[i]], type="f")^2
+    var.table <- cbind(var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+    ThetaS <- ThetaS + object$theta2[[i]] %*% object$S_I[[i]]
+  }
+  j <- object$theta1 %*% object$S_J
+  ssj <- norm(j, type="f")^2
+  ssi <- norm(ThetaS, type="f")^2
+  sse <- norm(as.matrix(object$data$Y-j-ThetaS), type="f")^2
+  sst <- norm(as.matrix(object$data$Y), type="f")^2
+  var.table <- cbind(c("Joint", "Indiv", "Error"),
+                     var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+  var.table <- as.data.frame(var.table)
+  names(var.table) <- c("Component", paste0("X", 1:k), "Y")
+
+  #cat("\n $pred.model \n")
+  j <- object$theta1 %*% object$S_J
+  a <- list(); a2 <- 0
+  sse <- sum((object$data$Y - j)^2)
+  ssr <- sum((mean(object$data$Y) - j)^2)
+  ssnum <-  sum((mean(j) - j)^2)
+  coefs <- object$theta1[1]
+  for(i in 1:k){
+    a[[i]] <- object$theta2[[i]] %*% object$S_I[[i]]
+    a2 <- a2 + a[[i]]
+    sse <- c(sse, sum((object$data$Y - a[[i]])^2))
+    ssr <- c(ssr, sum((mean(object$data$Y) - a[[i]])^2))
+    ssnum <- c(ssnum, sum((mean(a[[i]]) - a[[i]])^2))
+    coefs <- c(coefs, object$theta2[[i]][1])
+  }
+
+  sse_full <- sum((object$data$Y - (j+a2))^2)
+  sse_partial <- sum((object$data$Y - a2)^2)
+  for(i in 1:k){
+    temp <- j
+    for(ii in 1:k){
+      if(ii != i){temp <- temp + a[[ii]]}
+    }
+    sse_partial <- c(sse_partial, sum((object$data$Y - temp)^2))
+  }
+  r_squared <- (sse_partial - sse_full)/sse_partial
+  ranks <- c(object$rankJ, object$rankA)
+
+  b <- which(ranks>1)
+  n <- length(object$data$Y)
+  if(length(b)>0){
+    msr <- ssr[b] / (ranks[b]-1)
+    mse <- sse[b] / (n-ranks[b])
+    fstat <- msr/mse; pval <- NULL
+    for(j in 1:length(b)){
+      pval <- c(pval, 1-stats::pf(abs(fstat[j]), df1=ranks[b[j]]-1,
+                                  df2=n-ranks[b[j]], lower.tail = T) )
+    }}
+  bb <- which(ranks==1)
+  if(length(bb)>0){
+    se <- sqrt((1/(n-1) * sse[bb])  / ssnum[bb] )
+    z.stat <- coefs[bb]/se
+    pval2 <- 2*(1-stats::pnorm(abs(z.stat), lower.tail = T))
+  }
+  pvalfinal <- ranks*1
+  if(length(b)>0) pvalfinal[which(ranks>1)] <- pval
+  if(length(bb)>0) pvalfinal[which(ranks==1)] <- pval2
+
+  tbl <- data.frame(Component=c("Joint", paste0("Indiv", 1:k)),
+                    Rank = ranks,
+                    Partial_R2=r_squared,
+                    Pvalue=pvalfinal)
+
+  return(list(wts=object$weights, ranks=tbl_ranks,
+              variance=var.table,
+              pred.model=tbl))
 }
 
 
@@ -675,7 +757,32 @@ summary.sesJIVE <- function(object, ...){
 #' @param x a fitted sesJIVE model.
 #' @param ... further arguments passed to or from other methods.
 print.sesJIVE <- function(x, ...) {
-  print("Printing My World")
+  k <- length(x$data$X)
+  tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
+                          Rank = c(x$rankJ, x$rankA))
+  tbl_coef <- NULL
+  if(x$rankJ>0){
+    for(i in 1:x$rankJ){
+      new.col=c(paste0("Joint_",i), x$theta1[i])
+      tbl_coef <- cbind(tbl_coef, new.col)
+    }}
+  for(j in 1:k){
+    if(x$rankA[j]>0){
+      for(i in 1:x$rankA[j]){
+        new.col=c(paste0("Individual",j,"_", i), x$theta2[[j]][i])
+        tbl_coef <- cbind(tbl_coef, new.col)
+      }}
+  }
+
+  cat("weights:", x$weights, "\n")
+  cat("Ranks: \n")
+  for(i in 1:nrow(tbl_ranks)){
+    cat("   ",  unlist(tbl_ranks[i,]), "\n")
+  }
+  cat("Coefficients: \n")
+  for(i in 1:ncol(tbl_coef)){
+    cat("   ",  unlist(tbl_coef[,i]), "\n")
+  }
 }
 
 
@@ -1850,15 +1957,15 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
     Y.pred <- rbind(Y.pred, family.x[[i]]$linkinv(intercept + J + A))
   }
   if(train2){
-    temp <-muu[[k+1]] + as.matrix(theta1) %*% as.matrix(Sj)
+    temp <-muu[[k+1]] + matrix(theta1, ncol=length(theta1))  %*% as.matrix(Sj)
     for(i in 1:k){
-      temp <- temp + as.matrix(theta2[[i]]) %*% as.matrix(Si[[i]])
+      temp <- temp + matrix(theta2[[i]], ncol=length(theta2[[i]]))  %*% as.matrix(Si[[i]])
     }
     Y.pred <- rbind(Y.pred, temp)
   }
 
   #Calculate Likelihood
-  k2 <- ifelse(train, k+1, k)
+  k2 <- ifelse(train2, k+1, k)
   data_ll2 <- NULL
   for(i in 1:k2){
     X <- Xtilde[ob2[[i]],]

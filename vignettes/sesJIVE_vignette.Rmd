@@ -23,13 +23,13 @@ Here, we avoid methodological details and focus on the functionality of the `sup
 If you haven't used this package before, you'll have to install it first. You can install the development version of `sup.r.jive` from [GitHub](https://github.com/) with:
 
 ```{r}
-# install.packages("devtools")
+#install.packages("devtools")
 #devtools::install_github("enorthrop/sup.r.jive")
 library(sup.r.jive)
 ```
 
 
-For this example, we will use the `SimData.norm` data file contained in this package. After loading the data, we can see that it contains 2 data matrices saved as a list (`X`) and contains a continuous outcome vector (`Y`). Note that both data matrices have 40 rows or predictors, and have 30 columns or observations. The number of rows need not match across sources, but each source and the outcome must be collected on the same group of individuals.
+For this example, we will use the `SimData.norm` data file contained in this package. After loading the data, we can see that it contains 2 data matrices saved as a list (`X`) and contains a continuous outcome vector (`Y`). Note that both data matrices have 40 rows or predictors, and have 30 columns or observations. The number of rows need not match across sources, but each source and the outcome must be collected on the same group of individuals. It is also worth noting that this dataset does not have any underlying sparse structures, but we will still fit a sparse model for proof of concept.
 
 ```{r}
 data("SimData.norm")
@@ -42,70 +42,76 @@ str(SimData.norm)
 Let's say that we want to uncover the joint structure between the data sources, each source's individual structure, as well as predict the outcome `Y`. We can calculate this by running the `sesJIVE()` function. The ranks of the joint and individual components can be calculated by the permutation approach proposed in JIVE by Lock et al. (2013), but in this example, we will assume that we already know the ranks to be 1. The weight parameter and lambda were calculated by 5-fold cross-validation, choosing the value that minimized the deviance of the test set.
 
 
-```{r, eval=F}
-#Note that the weights were already found to be 0.1 and lambda = 0.001. In practice, 
-#      do not specify wts or lambda.
+```{r}
+#Note that the weights were already found to be 0.1 in the non-sparse case, 0.75 in the sparse case,
+#and lambda = 0.0000148148148148148. In practice, do not specify wts or lambda.
 fit <- sesJIVE(X=SimData.norm$X, Y=SimData.norm$Y, rankJ=1, rankA = c(1,1),
                sparse=F, wts=0.1)
 
 fit.sparse <- sesJIVE(X=SimData.norm$X, Y=SimData.norm$Y, rankJ=1, rankA = c(1,1),
-               sparse=T, wts=0.1)
+               sparse=T, wts=0.75, lambda=0.0000148148148148148)
 
 ```
 
-The output shows the final ranks for the joint and individual components as well as the tuning parameter and the number of iterations it took to reach convergence. By printing the model output, we can find similar information.
+The output shows the final ranks for the joint and individual components as well as the tuning parameter(s) and the number of iterations it took to reach convergence. By printing the model output, we can find similar information.
 
-```{r, eval=F}
+```{r}
 fit
+fit.sparse
 ```
 Or if we want a more detailed summary, we can do the following:
 
-```{r, eval=F}
+```{r}
 summary(fit)
+summary(fit.sparse)
 ```
 
-If we want to make predictions, we can do so using the predict function. Note that the Y predictions are for the centered and scaled outcome. `fit$data` contains the centered and scaled data, which should be used when assessing prediction accuracy of the method.
+If we want to make predictions, we can do so using the predict function. Unlike in sJIVE, sesJIVE does not center or scale the data by default. Looking at the training MSE, we find that the non-sparse solution has a lower value, which is expected since the sparse model penalizes the loadings and scores, preventing them from overfitting.
 
 
-```{r, eval=F}
+```{r}
 
 fit.pred <- predict(fit, newdata = SimData.norm$X)
-#MSE
+fit.sparse.pred <- predict(fit.sparse, newdata = SimData.norm$X)
+
+#Train MSE
 sum((fit$data$Y-fit.pred$Ypred)^2)/length(fit$data$Y)
+sum((fit.sparse$data$Y-fit.sparse.pred$Ypred)^2)/length(fit.sparse$data$Y)
 ```
 
 
 ## Visualization and interpretation
 
-The `sup.r.jive` package contains 3 visualization tools that help display the results. Each of the 3 functions will work for an object of class JIVE.pred, sJIVE, or sesJIVE as its input, but in this vignette, we will briefly discuss each function using the fitted sJIVE model from above.
+The `sup.r.jive` package contains 3 visualization tools that help display the results. Each of the 3 functions will work for an object of class JIVE.pred, sJIVE, or sesJIVE as its input, but in this vignette, we will briefly discuss each function using the fitted sesJIVE models from above.
 
 ### plotHeatmap()
 
-This function displays a heatmap of the contribution of the joint and individual components. Note that there is not a heatmap for the residual error of the fitted model. the `order_by` option in this function allows the user to order the column by the original data (default), the joint component (`order_by=1`), or the i'th individual component (`order_by=i`).
+This function displays a heatmap of the contribution of the joint and individual components. Note that there is not a heatmap for the residual error of the fitted model. The `order_by` option in this function allows the user to order the column by the original data (default), the joint component (`order_by=1`), or the i'th individual component (`order_by=i`). When the sparse model sets a component to exactly zero, the heatmap will have some blanks, as shown below.
 
-```{r, eval=F}
+```{r}
 plotHeatmap(fit) 
 
-plotHeatmap(fit, order_by = 0, ylab="Outcome", xlab=c("Data1", "Data2"))
+plotHeatmap(fit.sparse)
 ```
 
 ### plotVarExplained()
 
 This function creates a series of barplots to display the percent of variance explained by the joint and individual components. The `col` option allows you to choose the color palette in the graphs. The values graphed in the barplots can be found by the `\$variance` output from the `summary()` function.
 
-```{r, eval=F}
+```{r}
 plotVarExplained(fit, col=c("grey20", "grey43", "grey65"))
+plotVarExplained(fit.sparse, col=c("grey20", "grey43", "grey65"))
 
 ```
 
 
 ### plotFittedValues()
 
-This function displays two diagnostic plots for the fitted $Y$ values. The first plot compares the residuals to the fitted values, and the second plot is a Q-Q plot to look at the quantiles.
+This function displays two diagnostic plots for the fitted $Y$ values. The first plot compares the residuals to the fitted values, and the second plot is a Q-Q plot to look at the quantiles. Note that this ouput will only be present if the outcome is continuous.
 
-```{r, eval=F}
+```{r}
 plotFittedValues(fit)
-
+plotFittedValues(fit.sparse)
 ```
 
 

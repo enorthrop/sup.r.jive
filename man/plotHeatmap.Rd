@@ -4,6 +4,7 @@
 \alias{plotHeatmap}
 \alias{plotHeatmap.sJIVE}
 \alias{plotHeatmap.JIVEpred}
+\alias{plotHeatmap.sesJIVE}
 \title{Plot Heatmap for a supervised JIVE model}
 \usage{
 plotHeatmap(result, ...)
@@ -11,6 +12,8 @@ plotHeatmap(result, ...)
 \method{plotHeatmap}{sJIVE}(result, order_by = -1, ylab = "Y", xlab = NULL, ycex = 1, ...)
 
 \method{plotHeatmap}{JIVEpred}(result, order_by = -1, ylab = "Y", xlab = NULL, ycex = 1, ...)
+
+\method{plotHeatmap}{sesJIVE}(result, order_by = -1, ylab = "Y", xlab = NULL, ycex = 1, ...)
 }
 \arguments{
 \item{result}{An object of class "sJIVE", "JIVEpred", "sesJIVE".}
@@ -47,14 +50,18 @@ best results visually.
 description of plotHeatmap.sJIVE here.
 
 description of plotHeatmap.JIVEpred here.
+
+description of plotHeatmap.sesJIVE here.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{sJIVE}: 
+\item \code{plotHeatmap(sJIVE)}: 
 
-\item \code{JIVEpred}: 
+\item \code{plotHeatmap(JIVEpred)}: 
+
+\item \code{plotHeatmap(sesJIVE)}: 
+
 }}
-
 \examples{
 data(SimData.norm)
 fit <- sJIVE(X=SimData.norm$X,Y=SimData.norm$Y,
@@ -65,6 +72,12 @@ plotHeatmap(fit,  ylab="outcome",
 data(SimData.norm)
 fit <- JIVE.pred(X=SimData.norm$X,Y=SimData.norm$Y,
                   rankJ=1,rankA=c(1,1))
+plotHeatmap(fit,  ylab="outcome",
+        xlab=c("Metabolomic", "Proteomic"), ycex=0.9)
+
+data(SimData.norm)
+fit <- sesJIVE(X=SimData.norm$X,Y=SimData.norm$Y,
+               rankJ=1,rankA=c(1,1), sparse=F, wts=0.1)
 plotHeatmap(fit,  ylab="outcome",
         xlab=c("Metabolomic", "Proteomic"), ycex=0.9)
 

@@ -396,7 +396,7 @@ plotHeatmap.JIVEpred <- function(result, order_by=-1,
 #'
 #' @describeIn plotHeatmap
 #'
-#' @details description of plotHeatmap.JIVEpred here.
+#' @details description of plotHeatmap.sesJIVE here.
 #'
 #' @export
 #' @examples

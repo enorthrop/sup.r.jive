@@ -4,6 +4,7 @@
 \alias{plotVarExplained}
 \alias{plotVarExplained.JIVEpred}
 \alias{plotVarExplained.sJIVE}
+\alias{plotVarExplained.sesJIVE}
 \title{Variance Graph of supervised JIVE output}
 \usage{
 plotVarExplained(result, col, ...)
@@ -11,6 +12,8 @@ plotVarExplained(result, col, ...)
 \method{plotVarExplained}{JIVEpred}(result, col = c("grey20", "grey43", "grey65"), ...)
 
 \method{plotVarExplained}{sJIVE}(result, col = c("grey20", "grey43", "grey65"), ...)
+
+\method{plotVarExplained}{sesJIVE}(result, col = c("grey20", "grey43", "grey65"), ...)
 }
 \arguments{
 \item{result}{An object of class "sJIVE", "JIVEpred", "sesJIVE".}
@@ -33,14 +36,18 @@ is not continuous (e.g. if it is binary), a barplot for \code{y} will not be plo
 description of plotVarExplained.JIVEpred here.
 
 description of plotVarExplained.sJIVE here.
+
+description of plotVarExplained.sesJIVE here.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{JIVEpred}: 
+\item \code{plotVarExplained(JIVEpred)}: 
 
-\item \code{sJIVE}: 
+\item \code{plotVarExplained(sJIVE)}: 
+
+\item \code{plotVarExplained(sesJIVE)}: 
+
 }}
-
 \examples{
 \dontrun{
 #Let fit be a fitted sJIVE, JIVE.pred, or sesJIVE model

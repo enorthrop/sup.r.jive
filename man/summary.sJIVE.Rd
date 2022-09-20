@@ -38,6 +38,6 @@ printouts of theta1 and theta2 from the sJIVE model.
 }
 \section{Functions}{
 \itemize{
-\item \code{print.sJIVE}: 
-}}
+\item \code{print(sJIVE)}: 
 
+}}

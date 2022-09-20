@@ -38,6 +38,6 @@ result for the fitted GLM model.
 }
 \section{Functions}{
 \itemize{
-\item \code{print.JIVEpred}: 
-}}
+\item \code{print(JIVEpred)}: 
 
+}}

@@ -4,6 +4,7 @@
 \alias{plotFittedValues}
 \alias{plotFittedValues.sJIVE}
 \alias{plotFittedValues.JIVEpred}
+\alias{plotFittedValues.sesJIVE}
 \title{Plot fitted values from supervised JIVE model}
 \usage{
 plotFittedValues(result, ...)
@@ -11,6 +12,8 @@ plotFittedValues(result, ...)
 \method{plotFittedValues}{sJIVE}(result, graph = 0, ...)
 
 \method{plotFittedValues}{JIVEpred}(result, graph = 0, ...)
+
+\method{plotFittedValues}{sesJIVE}(result, graph = 0, ...)
 }
 \arguments{
 \item{result}{A fitted JIVEpred model}
@@ -37,14 +40,18 @@ between the component and the outcome.
 description of plotFittedValues.JIVEpred here.
 
 description of plotFittedValues.sJIVE here.
+
+description of plotFittedValues.sesJIVE here.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{sJIVE}: 
+\item \code{plotFittedValues(sJIVE)}: 
 
-\item \code{JIVEpred}: 
+\item \code{plotFittedValues(JIVEpred)}: 
+
+\item \code{plotFittedValues(sesJIVE)}: 
+
 }}
-
 \examples{
 \dontrun{
 #Let fit be a fitted sJIVE, JIVE.pred, or sesJIVE model

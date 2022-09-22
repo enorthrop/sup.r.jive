@@ -637,12 +637,35 @@ plotVarExplained.sesJIVE <- function(result, col=c("grey20", "grey43", "grey65")
                      bty = "n",fill= col)
   }else{
     warning("Variation in Y cannot be displayed since Y is not Gaussian")
-    l <- ncol(s.result$variance)-2
+    var.table <- NULL; ThetaS <- 0
+    k <- length(result$data$X)
+    for (i in 1:k) {
+      j <- result$U_I[[i]] %*% result$S_J
+      a <- result$W_I[[i]] %*% result$S_I[[i]]
+      ssj <- norm(j, type="f")^2
+      ssi <- norm(a, type="f")^2
+      sse <- norm(result$data$X[[i]] -j-a, type="f")^2
+      sst <- norm(result$data$X[[i]], type="f")^2
+      var.table <- cbind(var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+      ThetaS <- ThetaS + result$theta2[[i]] %*% result$S_I[[i]]
+    }
+    j <- result$theta1 %*% result$S_J
+    ssj <- norm(j, type="f")^2
+    ssi <- norm(ThetaS, type="f")^2
+    sse <- norm(as.matrix(result$data$Y-j-ThetaS), type="f")^2
+    sst <- norm(as.matrix(result$data$Y), type="f")^2
+    var.table <- cbind(c("Joint", "Indiv", "Error"),
+                       var.table, round(c(ssj/sst, ssi/sst, sse/sst),4))
+    var.table <- as.data.frame(var.table)
+    names(var.table) <- c("Component", paste0("X", 1:k), "Y")
+    var.table <- var.table[,-ncol(var.table)]
+
+    l <- ncol(var.table)-2
 
     graphics::par(mar=c(5,4,4,0))
     graphics::layout(matrix(c(1,2),1,2),heights=c(5,5),widths=c(5,2))
-    graphics::barplot(as.matrix(s.result$variance[,-1]),col = col,main = "Variation Explained",
-                      names.arg=names(s.result$variance)[-1])
+    graphics::barplot(as.matrix(var.table[,-1]),col = col,main = "Variation Explained",
+                      names.arg=names(var.table)[-1])
     graphics::par(mar=c(0,0,0,0))
     graphics::plot.new()
     graphics::legend(x=0.05,y=0.8,legend=c('Joint','Individual','Residual'),

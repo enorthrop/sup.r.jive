@@ -9,6 +9,16 @@
 #' in a fitted model.
 #'
 #' @param result An object of class "sJIVE", "JIVEpred", "sesJIVE".
+#' @param order_by A value that specifies how to order the rows and columns
+#'  of the heatmap. #If order_by=-1, orderings are determined
+#'  by the outcome. If order_by=0, orderings are determined
+#'  by joint structure.  Otherwise, order_by gives the number
+#'  of the individual structure dataset to determine the ordering.
+#'  In all cases orderings are determined by complete-linkage
+#'  hierarchical clustering of Euclidean distances.
+#' @param ylab A label for the outcome dataset.
+#' @param xlab A vector with labels for each X dataset.
+#' @param ycex A scalar to change the font size of the labels.
 #' @param ... further arguments passed to or from other methods.
 #'
 #' @details This function takes a fitted sJIVE, sesJIVE, or JIVE.pred
@@ -25,11 +35,12 @@ plotHeatmap <- function(result, ...) {
 
 #' Plot fitted values from supervised JIVE model
 #'
-#' Display adiagnostic plots given a
+#' Display diagnostic plots given a
 #' JIVE.pred, sJIVE, or sesJIVE model
 #'
-#' @param result A fitted JIVEpred model
-#' @param ... further arguments passed to or from other methods
+#' @param result A fitted model.
+#' @param graph A value: 0, 1, or 2.
+#' @param ... further arguments passed to or from other methods.
 #'
 #' @details Depending if the outcome is Gaussian or binary, different diagnostic plots
 #' will be generated. If the outcome is Gaussian, a residual plot and a Q-Q plot will
@@ -75,21 +86,6 @@ plotVarExplained <- function(result, col, ...){
 #' plotHeatmap.sJIVE
 #'
 #' @describeIn plotHeatmap
-#'
-#' @details description of plotHeatmap.sJIVE here.
-#'
-#'
-#' @param order_by specifies how to order the rows and columns
-#'  of the heatmap. #If order_by=-1, orderings are determined
-#'  by the outcome. If order_by=0, orderings are determined
-#'  by joint structure.  Otherwise, order_by gives the number
-#'  of the individual structure dataset to determine the ordering.
-#'  In all cases orderings are determined by complete-linkage
-#'  hierarchical clustering of Euclidean distances.
-#' @param ylab a label for the outcome dataset
-#' @param xlab a vector with labels for each X dataset
-#' @param ycex a scalar to change the font size of the labels
-#' @param ... further arguments passed to or from other methods
 #'
 #' @export
 #' @examples
@@ -241,7 +237,6 @@ plotHeatmap.sJIVE <- function(result, order_by=-1,
 #'
 #' @describeIn plotHeatmap
 #'
-#' @details description of plotHeatmap.JIVEpred here.
 #'
 #' @export
 #' @examples
@@ -396,16 +391,7 @@ plotHeatmap.JIVEpred <- function(result, order_by=-1,
 #'
 #' @describeIn plotHeatmap
 #'
-#' @details description of plotHeatmap.sesJIVE here.
-#'
 #' @export
-#' @examples
-#' data(SimData.norm)
-#' fit <- sesJIVE(X=SimData.norm$X,Y=SimData.norm$Y,
-#'                rankJ=1,rankA=c(1,1), sparse=F, wts=0.1)
-#' plotHeatmap(fit,  ylab="outcome",
-#'         xlab=c("Metabolomic", "Proteomic"), ycex=0.9)
-#'
 plotHeatmap.sesJIVE <- function(result, order_by=-1,
                               ylab="Y", xlab=NULL, ycex=1, ...){
   #result is an object of class sesJIVE_result
@@ -561,7 +547,6 @@ show.image = function(Image,ylab=''){
 #'
 #' @describeIn plotVarExplained
 #'
-#' @details description of plotVarExplained.JIVEpred here.
 #'
 #' @export
 #' @examples
@@ -606,7 +591,6 @@ plotVarExplained.JIVEpred <- function(result, col=c("grey20", "grey43", "grey65"
 #'
 #' @describeIn plotVarExplained
 #'
-#' @details description of plotVarExplained.sJIVE here.
 #'
 #' @export
 plotVarExplained.sJIVE <- function(result, col=c("grey20", "grey43", "grey65"), ...){
@@ -631,8 +615,6 @@ plotVarExplained.sJIVE <- function(result, col=c("grey20", "grey43", "grey65"), 
 #' plotVarExplained.sesJIVE
 #'
 #' @describeIn plotVarExplained
-#'
-#' @details description of plotVarExplained.sesJIVE here.
 #'
 #' @export
 plotVarExplained.sesJIVE <- function(result, col=c("grey20", "grey43", "grey65"), ...){
@@ -675,9 +657,7 @@ plotVarExplained.sesJIVE <- function(result, col=c("grey20", "grey43", "grey65")
 #'
 #' @describeIn plotFittedValues
 #'
-#' @details description of plotFittedValues.JIVEpred here.
 #'
-#' @param graph A value: 0, 1, or 2
 #' @export
 plotFittedValues.sJIVE <- function(result, graph=0, ...){
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
@@ -707,7 +687,6 @@ plotFittedValues.sJIVE <- function(result, graph=0, ...){
 #'
 #' @describeIn plotFittedValues
 #'
-#' @details description of plotFittedValues.sJIVE here.
 #'
 #' @export
 plotFittedValues.JIVEpred <- function(result, graph=0, ...){
@@ -785,8 +764,6 @@ plotFittedValues.JIVEpred <- function(result, graph=0, ...){
 #'
 #' @describeIn plotFittedValues
 #'
-#' @details description of plotFittedValues.sesJIVE here.
-#'
 #' @export
 plotFittedValues.sesJIVE <- function(result, graph=0, ...){
   old.par <- graphics::par(no.readonly = TRUE) # all par settings which could be changed
@@ -799,6 +776,7 @@ plotFittedValues.sesJIVE <- function(result, graph=0, ...){
   ypred <- fam$linkinv(result$natY)
   if(result$family.y !="gaussian"){ypred <- round(ypred)}
 
+  if(result$family.y == "gaussian"){
   rsd <- ypred - result$data$Y
   ylims <- max(abs(rsd))
 
@@ -814,5 +792,59 @@ plotFittedValues.sesJIVE <- function(result, graph=0, ...){
   if(graph != 1){
     stats::qqnorm(rsd, ylab="", ylim=c(-ylims, ylims))
     stats::qqline(rsd, lty = 3, col = "gray50")
+  }
+  }else if(result$family.y == "binomial"){
+    dat <- cbind(t(result$data$Y), t(result$S_J), t(result$S_I[[1]]))
+    dat.lab <- c("Y", paste0("S_J ", 1:result$rankJ), paste0("S_1 ", 1:result$rankA[1]))
+    for(i in 2:length(result$data$X)){
+      dat <- cbind(dat, t(result$S_I[[i]]))
+      dat.lab <- c(dat.lab, paste0("S_", i, " ", 1:result$rankA[i]))
+    }
+    l <- ncol(dat)-1
+    dat <- as.data.frame(dat)
+    names(dat) <- dat.lab
+
+    if(l %% 2 == 0){
+      for(i in 1:(l/2)){
+        x <- names(dat)[2*i-1+1]
+        p1 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+          ggplot2::geom_point(alpha=0.33) +
+          ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+        p3 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+          ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+
+        x <- names(dat)[2*i+1]
+        p2 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+          ggplot2::geom_point(alpha=0.33) +
+          ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+        p4 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+          ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+        gridExtra::grid.arrange(p1, p2, p3, p4, ncol=2)
+      }
+    }else{
+      for(i in 1:((l-1)/2)){
+        x <- names(dat)[2*i-1+1]
+        p1 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+          ggplot2::geom_point(alpha=0.33) +
+          ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+        p3 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+          ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+
+        x <- names(dat)[2*i+1]
+        p2 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+          ggplot2::geom_point(alpha=0.33) +
+          ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+        p4 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+          ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+        gridExtra::grid.arrange(p1, p2, p3, p4, ncol=2)
+      }
+      x <- names(dat)[l+1]
+      p1 <- ggplot2::ggplot(dat, ggplot2::aes(x=get(x), y=Y)) +
+        ggplot2::geom_point(alpha=0.33) +
+        ggplot2::geom_smooth(method = "loess") + ggplot2::xlab(x)
+      p3 <- ggplot2::ggplot(dat,ggplot2::aes(x=get(x), group=Y, color=Y, fill=Y)) +
+        ggplot2::geom_density(alpha=0.4) + ggplot2::xlab(x)
+      gridExtra::grid.arrange(p1, p3, ncol=1)
+    }
   }
 }

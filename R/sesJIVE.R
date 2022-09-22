@@ -670,7 +670,7 @@ summary.sesJIVE <- function(object, ...){
   tbl_ranks <- data.frame(Source = c("Joint", paste0("Data", 1:k)),
                           Rank = c(object$rankJ, object$rankA))
 
-
+  if(object$family.y == "gaussian"){
   #cat("\n $Variance \n")
   var.table <- NULL; ThetaS <- 0
   for (i in 1:k) {
@@ -745,10 +745,20 @@ summary.sesJIVE <- function(object, ...){
                     Rank = ranks,
                     Partial_R2=r_squared,
                     Pvalue=pvalfinal)
+  result <- list(wts=object$weights, ranks=tbl_ranks,
+                 variance=var.table,
+                 pred.model=tbl)
+  }else{
+    coefs <- data.frame(label=c(rep("Theta1 - Joint", object$rankJ),
+                                rep('Theta2 - Indiv 1', object$rankA[1]),
+                                rep('Theta2 - Indiv 2', sum(object$rankA)-object$rankA[1])),
+                coef=c(object$theta1, unlist(object$theta2)))
+    coefs$`Exp(coef)` <- exp(coefs$coef)
+    result <- list(wts=object$weights, ranks=tbl_ranks,
+                   coefficients=coefs)
+  }
 
-  return(list(wts=object$weights, ranks=tbl_ranks,
-              variance=var.table,
-              pred.model=tbl))
+  return(result)
 }
 
 
@@ -903,6 +913,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
     num_iter <- 1000
     converge <- T
   }
+
   #update.beta <- T
   for(i in 1:num_iter){
     if(i>1 & transpose){eta1 <- t(eta1)}
@@ -1001,6 +1012,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
             temp <- solve(crossprod(Xtran,W[,k]*Xtran),
                           crossprod(Xtran,W[,k]*z[,k]), tol=2*.Machine$double.eps),
             silent=T)
+
           beta.new <- cbind(beta.new, temp)
         }
         eta.new = Xtran %*% beta.new + t(offsets[rownum,])
@@ -1970,7 +1982,7 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
   for(i in 1:k2){
     X <- Xtilde[ob2[[i]],]
     natX <- Y.pred[ob2[[i]],]
-    Xfit <- natX #family.x[[i]]$linkinv(natX)
+    Xfit <- family.x[[i]]$linkinv(natX)
     Xfit[which(as.numeric(Xfit)>10^12)] <- 10^12
     n <- ncol(natX)
     if(is.null(n)){n <- 1}

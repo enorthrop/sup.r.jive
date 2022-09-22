@@ -32,12 +32,6 @@ to show the amount of variance explained by the model results
 \details{
 A barplot for each \code{X} dataset and the outcome will be graphed. If \code{y}
 is not continuous (e.g. if it is binary), a barplot for \code{y} will not be plotted.
-
-description of plotVarExplained.JIVEpred here.
-
-description of plotVarExplained.sJIVE here.
-
-description of plotVarExplained.sesJIVE here.
 }
 \section{Methods (by class)}{
 \itemize{

@@ -31,7 +31,7 @@ are "gaussian", "binomial", and "poisson". Model is fit using GLM.}
 \item{rankJ}{An integer specifying the joint rank of the data.
 If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.}
 
-\item{rankA}{vector specifying the individual ranks of the data.
+\item{rankA}{A vector specifying the individual ranks of the data.
 If \code{rankA=NULL}, ranks will be determined by the \code{method} option.}
 
 \item{center}{A boolean indicating whether or not X should be centered. Default is FALSE.}
@@ -42,8 +42,8 @@ If \code{rankA=NULL}, ranks will be determined by the \code{method} option.}
 orthogonality between individual structures. Default is FALSE.}
 
 \item{method}{A string with the method to use for rank selections.
-Possible options are "given", "perm", and "bic". Default is "perm". If ranks are
-specified, the method "given" will be used. See below for more details.}
+Possible options are "given" if the ranks are specified, "perm" to use JIVE's permutation
+approach, and "bic" to minimize the BIC. Default is "perm". See below for more details.}
 
 \item{maxiter}{The maximum number of iterations allowed in the JIVE method.}
 
@@ -63,7 +63,7 @@ An object of class "JIVEpred" is a list containing the following components.
  \item{data.matrix}{The data matrix that was used when fitting the GLM. The first column
  is the centered and scaled outcome, if applicable, and the remaining columns are the joint
  and individual score matrices.}
- \item{family}{A string stating which family was used when fitting the GLM}
+ \item{family}{A string stating which family was used when fitting the GLM.}
 }
 \description{
 Given multi-source data and an outcome, JIVE-predict will

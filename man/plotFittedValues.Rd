@@ -16,17 +16,17 @@ plotFittedValues(result, ...)
 \method{plotFittedValues}{sesJIVE}(result, graph = 0, ...)
 }
 \arguments{
-\item{result}{A fitted JIVEpred model}
+\item{result}{A fitted model.}
 
-\item{...}{further arguments passed to or from other methods}
+\item{...}{further arguments passed to or from other methods.}
 
-\item{graph}{A value: 0, 1, or 2}
+\item{graph}{A value: 0, 1, or 2.}
 }
 \value{
 Diagnostic plot(s)
 }
 \description{
-Display adiagnostic plots given a
+Display diagnostic plots given a
 JIVE.pred, sJIVE, or sesJIVE model
 }
 \details{
@@ -36,12 +36,6 @@ be created. If the outcome is binary, two plots will be created for each joint a
 individual component: the first will plot a Loess curve, and the second
 will contain a density plot. Both plots help show the separation, or lack thereof,
 between the component and the outcome.
-
-description of plotFittedValues.JIVEpred here.
-
-description of plotFittedValues.sJIVE here.
-
-description of plotFittedValues.sesJIVE here.
 }
 \section{Methods (by class)}{
 \itemize{

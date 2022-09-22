@@ -15,7 +15,7 @@
 #' to the number of columns in each view of \code{X}.
 #' @param rankJ An integer specifying the joint rank of the data.
 #' If \code{rankJ=NULL}, ranks will be determined by the \code{method} option.
-#' @param rankA vector specifying the individual ranks of the data.
+#' @param rankA A vector specifying the individual ranks of the data.
 #' If \code{rankA=NULL}, ranks will be determined by the \code{method} option.
 #' @param family A string specifying the type of prediction model to fit. Options
 #' are "gaussian", "binomial", and "poisson". Model is fit using GLM.
@@ -24,8 +24,8 @@
 #' @param orthIndiv A boolean indicating whether or not the algorithm should enforce
 #' orthogonality between individual structures. Default is FALSE.
 #' @param method A string with the method to use for rank selections.
-#' Possible options are "given", "perm", and "bic". Default is "perm". If ranks are
-#' specified, the method "given" will be used. See below for more details.
+#' Possible options are "given" if the ranks are specified, "perm" to use JIVE's permutation
+#' approach, and "bic" to minimize the BIC. Default is "perm". See below for more details.
 #' @param maxiter The maximum number of iterations allowed in the JIVE method.
 #' @param showProgress A boolean indicating whether or not to give output showing
 #' the progress of the algorithm.
@@ -60,7 +60,7 @@
 #'  \item{data.matrix}{The data matrix that was used when fitting the GLM. The first column
 #'  is the centered and scaled outcome, if applicable, and the remaining columns are the joint
 #'  and individual score matrices.}
-#'  \item{family}{A string stating which family was used when fitting the GLM}
+#'  \item{family}{A string stating which family was used when fitting the GLM.}
 #' @export
 #'
 #' @seealso \code{\link{predict.JIVEpred}}  \code{\link{summary.JIVEpred}}

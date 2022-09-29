@@ -519,7 +519,7 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
     }
     if(train){
       mu.mat <- rbind(mu.mat, as.matrix(mu[[k+1]]))
-      U.mat <- rbind(U.mat, as.matrix(theta1))
+      U.mat <- rbind(U.mat, t(as.matrix(theta1)))
       A <- rbind(A, WS)
     }
     off <- mu.mat %*% int + A
@@ -554,7 +554,7 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
         WS <- 0
         for(j in 1:k){
           if(j != i){
-            WS <- WS + as.matrix(theta2[[j]]) %*% as.matrix(Si[[j]])
+            WS <- WS + t(as.matrix(theta2[[j]])) %*% as.matrix(Si[[j]])
           }
         }
         W_temp[obs[[k+1]],] <- theta2[[i]]

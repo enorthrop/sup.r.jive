@@ -1124,7 +1124,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
           iters <- iters + 1
           old.t <- new.t
           if(abs(dfl(new.t))<0.0000001){break}
-          if(new.t == 0 & df(new.t)>0){break}
+          if(new.t == 0 & dfl(new.t)>0){break}
           t.vec <- c(t.vec, new.t)
           temp<-backtrack(x=as.numeric(old.t), dx=sign(dfl(as.numeric(old.t))), f=fl, df=dfl,
                           b.full=dat$beta.new,
@@ -1140,7 +1140,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         (1-new.t) * as.matrix(beta.new)
 
       #add back in unpenalized y coefficient
-      beta.final <- rbind(beta.final, beta.y.coef)
+      beta.final <- rbind(beta.final, t(as.matrix(beta.y.coef)))
 
       # Need to calculate eta.new and beta.new
       eta.new = t(predictor) %*% t(beta.final) + t(offsets[rownum,])

@@ -854,14 +854,11 @@ optim.error2 <- function(irlslist2, famlist2, kk2, ob2,
     }else if(famlist2[[i]]$family=="binomial"){
       ll <- wt.vec2[i]*(sum( X*log(Xfit) + (1-X)*log(1-Xfit)))
     }else if(famlist2[[i]]$family=="poisson"){
-      fx <- log(factorial(X))
-      high.obs <- which(fx==Inf)
-      if(length(high.obs)>0){
-        for(j in high.obs){
-          temp <- log(factorial(170))
-          for(m in 171:X[j]){temp <- temp + log(m)}
-          fx[j] <- temp
-        }
+      fx <- X
+      for(j in 1:nrow(X)){
+        fx[j,] <- sapply(X[j,], function(y) sum(log(1:y)))
+        bad.obs <- which(fx[j,] == -Inf)
+        if(length(bad.obs)>0){fx[j,bad.obs] <- 0}
       }
       ll <- wt.vec2[i]*(sum( X*log(Xfit) - Xfit - fx))
     }
@@ -983,8 +980,14 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         }
 
         mu = famlist[[j]]$linkinv(eta.old[,l])
+        if(length(which(mu>10^(17)))>0){
+          mu[which(mu>10^(17))] <- 10^(17)
+        }
         varg = famlist[[j]]$variance(mu)
         gprime = famlist[[j]]$mu.eta(eta.old[,l])
+        if(length(which(gprime>10^(17)))>0){
+          gprime[which(gprime>10^(17))] <- 10^(17)
+        }
         dev.new = sum(famlist[[j]]$dev.resids(y, mu, wt))
 
         dev1 <- dev1 + dev.new
@@ -1048,6 +1051,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         y.temp <- rbind(y.temp, sqrt(diag(W[,k]))%*%z[,k])
       }
       x.temp2 <- Matrix::bdiag(x.temp)
+      x.temp2 <- as_matrix(x.temp2)
 
       r <- ncol(x.temp2)
       if(sum(abs(y.temp))==0 | sum(abs(x.temp2))==0){
@@ -1089,14 +1093,11 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
           }else if(famlist2[[i]]$family=="binomial"){
             ll <- wt.vec2[i]*(sum( X*log(Xfit) + (1-X)*log(1-Xfit)))
           }else if(famlist2[[i]]$family=="poisson"){
-            fx <- log(factorial(X))
-            high.obs <- which(fx==Inf)
-            if(length(high.obs)>0){
-              for(j in high.obs){
-                temp <- log(factorial(170))
-                for(m in 171:X[j]){temp <- temp + log(m)}
-                fx[j] <- temp
-              }
+            fx <- X
+            for(j in 1:nrow(X)){
+              fx[j,] <- sapply(X[j,], function(y) sum(log(1:y)))
+              bad.obs <- which(fx[j,] == -Inf)
+              if(length(bad.obs)>0){fx[j,bad.obs] <- 0}
             }
             ll <- wt.vec2[i]*(sum( X*log(Xfit) - Xfit - fx))
           }
@@ -1153,6 +1154,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         y.temp <- rbind(y.temp, sqrt(diag(W[,k]))%*%z[,k])
       }
       x.temp2 <- Matrix::bdiag(x.temp)
+      x.temp2 <- as_matrix(x.temp2)
 
       if(sum(abs(as.vector(x.temp2)))!=0){
         # if temp.x== all zeros, then force beta=0 and move on
@@ -1191,14 +1193,11 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
             }else if(famlist2[[i]]$family=="binomial"){
               ll <- wt.vec2[i]*(sum( X*log(Xfit) + (1-X)*log(1-Xfit)))
             }else if(famlist2[[i]]$family=="poisson"){
-              fx <- log(factorial(X))
-              high.obs <- which(fx==Inf)
-              if(length(high.obs)>0){
-                for(j in high.obs){
-                  temp <- log(factorial(170))
-                  for(m in 171:X[j]){temp <- temp + log(m)}
-                  fx[j] <- temp
-                }
+              fx <- X
+              for(j in 1:nrow(X)){
+                fx[j,] <- sapply(X[j,], function(y) sum(log(1:y)))
+                bad.obs <- which(fx[j,] == -Inf)
+                if(length(bad.obs)>0){fx[j,bad.obs] <- 0}
               }
               ll <- wt.vec2[i]*(sum( X*log(Xfit) - Xfit - fx))
             }
@@ -1991,14 +1990,11 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
     }else if(family.x[[i]]$family=="binomial"){
       ll <- wt.vec[i]*(sum( X*log(Xfit) + (1-X)*log(1-Xfit)))
     }else if(family.x[[i]]$family=="poisson"){
-      fx <- log(factorial(X))
-      high.obs <- which(fx==Inf)
-      if(length(high.obs)>0){
-        for(j in high.obs){
-          temp <- log(factorial(170))
-          for(m in 171:X[j]){temp <- temp + log(m)}
-          fx[j] <- temp
-        }
+      fx <- X
+      for(j in 1:nrow(X)){
+        fx[j,] <- sapply(X[j,], function(y) sum(log(1:y)))
+        bad.obs <- which(fx[j,] == -Inf)
+        if(length(bad.obs)>0){fx[j,bad.obs] <- 0}
       }
       ll <- wt.vec[i]*(sum(as.numeric( X*log(Xfit) - Xfit - fx),
                            rm.na=T))
@@ -2011,5 +2007,24 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
               data_lik = data_ll2))
 
 }
+
+
+
+as_matrix <- function(mat){
+  #Code originally from https://programmerah.com/the-sparse-matrix-of-r-language-is-too-large-to-be-used-as-matrix-8856/
+  #Used to prevent errors from large sparse matrices.
+  tmp <- matrix(data=0L, nrow = mat@Dim[1], ncol = mat@Dim[2])
+
+  row_pos <- mat@i+1
+  col_pos <- findInterval(seq(mat@x)-1,mat@p[-1])+1
+  val <- mat@x
+
+  for (i in seq_along(val)){
+    tmp[row_pos[i],col_pos[i]] <- val[i]
+  }
+
+  return(tmp)
+}
+
 
 

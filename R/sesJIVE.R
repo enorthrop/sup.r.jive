@@ -949,7 +949,7 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         }else if(famlist[[j]]$family =="gaussian"){
           eta.old =  Y - off
         }else if(famlist[[j]]$family =="poisson"){
-          eta.old = off + 0.1
+          eta.old = famlist[[j]]$linkfun((Y + 0.1)) - off
         }
       }else{
         if(length(ob[[j]])==1){
@@ -1051,13 +1051,12 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         y.temp <- rbind(y.temp, sqrt(diag(W[,k]))%*%z[,k])
       }
       x.temp2 <- Matrix::bdiag(x.temp)
-      x.temp2 <- as_matrix(x.temp2)
 
       r <- ncol(x.temp2)
       if(sum(abs(y.temp))==0 | sum(abs(x.temp2))==0){
         beta.sparse <- rep(0,r)
       }else{
-        fit.lasso <- glmnet::glmnet(as.matrix(x.temp2),y.temp,
+        fit.lasso <- glmnet::glmnet(x.temp2,y.temp,
                                     family="gaussian",
                                     alpha=1, nlambda=1, lambda=lambda,
                                     intercept = FALSE, standardize = FALSE,
@@ -1154,15 +1153,14 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
         y.temp <- rbind(y.temp, sqrt(diag(W[,k]))%*%z[,k])
       }
       x.temp2 <- Matrix::bdiag(x.temp)
-      x.temp2 <- as_matrix(x.temp2)
 
-      if(sum(abs(as.vector(x.temp2)))!=0){
+      if(sum(abs(x.temp2))!=0){
         # if temp.x== all zeros, then force beta=0 and move on
         r <- ncol(x.temp2)
         if(sum(abs(y.temp))==0){
           beta.sparse <- rep(0,r)
         }else{
-          fit.ridge <- glmnet::glmnet(as.matrix(x.temp2),y.temp,
+          fit.ridge <- glmnet::glmnet(x.temp2,y.temp,
                                       family="gaussian",
                                       alpha=0, nlambda=1, lambda=1,
                                       intercept = FALSE, standardize = FALSE,
@@ -1265,7 +1263,12 @@ irls_func <- function(irlslist, predictor, offsets, list_num, num_iter=1,
     }
     irlslist[[list_num]] <- dat
 
-    if(converge & (dev.change < thresholds)){break}
+    if(is.na(dev.change) == F){
+      if(converge & (abs(dev.change) < thresholds)){break}
+    }else{
+      cat("Warning: Deviance could not be calculated")
+      break
+    }
   }
   return(irlslist)
 
@@ -1854,10 +1857,7 @@ find.wts <- function(e, YY, XX, max.iters,
     }
 
     fit1 <- NULL
-    attempt <- 0
-    while( is.null(fit1) && attempt <= 3 ) {
-      attempt <- attempt + 1
-      try(
+    try(
         fit1 <- sesJIVE.converge(sub.train.x, sub.train.y,
                                  max.iter=max.iters, threshold = temp.norm/temp.scale,
                                  family.x = family.xx,
@@ -1868,7 +1868,6 @@ find.wts <- function(e, YY, XX, max.iters,
                                  show.message=F, show.error=F, initial = initials,
                                  irls_iter=attempt, intercept=intercepts)
       )
-    }
     if(is.null(fit1)){
       fit.dev <- NA
     }else{
@@ -1965,7 +1964,7 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
     intercept <- as.matrix(muu[[i]]) %*% t(as.matrix(rep(1,ncol(as.matrix(Sj)))))
     J <- as.matrix(U[[i]]) %*% as.matrix(Sj)
     A <- as.matrix(W[[i]]) %*% as.matrix(Si[[i]])
-    Y.pred <- rbind(Y.pred, family.x[[i]]$linkinv(intercept + J + A))
+    Y.pred <- rbind(Y.pred, intercept + J + A)
   }
   if(train2){
     temp <-muu[[k+1]] + matrix(theta1, ncol=length(theta1))  %*% as.matrix(Sj)
@@ -1997,7 +1996,7 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
         if(length(bad.obs)>0){fx[j,bad.obs] <- 0}
       }
       ll <- wt.vec[i]*(sum(as.numeric( X*log(Xfit) - Xfit - fx),
-                           rm.na=T))
+                           na.rm=T))
     }
     data_ll2 <- c(data_ll2, ll)
   }
@@ -2009,22 +2008,6 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
 }
 
 
-
-as_matrix <- function(mat){
-  #Code originally from https://programmerah.com/the-sparse-matrix-of-r-language-is-too-large-to-be-used-as-matrix-8856/
-  #Used to prevent errors from large sparse matrices.
-  tmp <- matrix(data=0L, nrow = mat@Dim[1], ncol = mat@Dim[2])
-
-  row_pos <- mat@i+1
-  col_pos <- findInterval(seq(mat@x)-1,mat@p[-1])+1
-  val <- mat@x
-
-  for (i in seq_along(val)){
-    tmp[row_pos[i],col_pos[i]] <- val[i]
-  }
-
-  return(tmp)
-}
 
 
 

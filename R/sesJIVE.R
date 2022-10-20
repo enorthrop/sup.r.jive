@@ -1905,9 +1905,6 @@ find.lambda <-  function(lambda, YY, XX, max.iters,
     }
     fit1 <- NULL
     if(lambda>0){
-      attempt <- 0
-      while( is.null(fit1) && attempt <= 5 ) {
-        attempt <- attempt + 1
         try(
           fit1 <- sesJIVE.converge(sub.train.x, sub.train.y,
                                    max.iter=max.iters, threshold = 0.001,
@@ -1917,13 +1914,10 @@ find.lambda <-  function(lambda, YY, XX, max.iters,
                                    weights=weights, lambda=lambda,
                                    sparse=T, initial = initials,
                                    show.message=F, show.error=F,
-                                   irls_iter=attempt, intercept=intercepts)
+                                  intercept=intercepts)
         )
-      }
+
     }else{
-      attempt <- 0
-      while( is.null(fit1) && attempt <= 5 ) {
-        attempt <- attempt + 1
         try(
           fit1 <- sesJIVE.converge(sub.train.x, sub.train.y,
                                    max.iter=max.iters, threshold = 0.001,
@@ -1935,15 +1929,20 @@ find.lambda <-  function(lambda, YY, XX, max.iters,
                                    show.message=F, show.error=F,
                                    irls_iter=attempt, intercept=intercepts)
         )
-      }
     }
     #Record Error for fold
+    if(is.null(fit1)){
+      err.fold <- c(err.fold, NA)
+      bad.lamb <- c(bad.lamb, NA)
+      sparsity <- c(sparsity, NA)
+    }else{
     fit_test1 <- stats::predict(fit1, sub.test.x, show.message = F)
     fit.dev <- get_deviance(sub.test.y, fit_test1$Ynat,
                             family.yy=family.yy)
     err.fold <- c(err.fold, fit.dev)
     bad.lamb <- c(bad.lamb, fit1$bad.lambda)
     sparsity <- c(sparsity, fit1$pct.sparsity)
+    }
   }
 
   #Record Test Error (using validation set)

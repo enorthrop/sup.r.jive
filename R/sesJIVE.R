@@ -524,6 +524,8 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
     }
     off <- mu.mat %*% int + A
     beta.old <- irls.list[[1]]$beta.new
+    keep.eta <- irls.list[[k+2]]
+    irls.old <- irls.list[[1]]
     irls.list <- irls_func(irls.list,U.mat, #U is known
                            num_iter = irls_iter, list_num = 1, offsets=off,
                            outcome = X.tilde, thresholds=threshold, famlist=fam.list,
@@ -538,8 +540,10 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
     if(is.na(as.numeric(as.character(temp.err2)))){
       irls.list[[1]]$beta.new <- beta.old
     }else if(as.numeric(as.character(temp.err2))-temp.err1< -1){
-      #cat(paste0("Warning: S", i, "wanted to diverge iter ", iter))
+      #cat(paste0("Warning: Sj wanted to diverge iter ", iter))
       irls.list[[1]]$beta.new <- beta.old
+      irls.list[[k+2]] <- keep.eta
+      irls.list[[1]] <- irls.old
     }else{
       temp.err1 <- as.numeric(as.character(temp.err2))
       Sj <- irls.list[[1]]$beta.new
@@ -563,6 +567,8 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
 
       #Optimize Si
       beta.old <- irls.list[[i+1]]$beta.new
+      keep.eta <- irls.list[[k+2]]
+      irls.old <- irls.list[[i+1]]
       irls.list <- irls_func(irls.list,predictor=W_temp, #W is known
                              num_iter = irls_iter, list_num = i+1, outcome = X.tilde,
                              offsets=off, Xtilde = X.tilde,
@@ -578,9 +584,13 @@ predict.sesJIVE<- function(object, newdata, threshold = 0.00001,
                                  theta2 = theta2)$log_lik
       if(is.na(as.numeric(as.character(temp.err2)))){
         irls.list[[i+1]]$beta.new <- beta.old
+        irls.list[[k+2]] <- keep.eta
+        irls.list[[i+1]] <- irls.old
       }else if(as.numeric(as.character(temp.err2))-temp.err1< -1){
         #cat(paste0("Warning: S", i, "wanted to diverge iter ", iter))
         irls.list[[i+1]]$beta.new <- beta.old
+        irls.list[[k+2]] <- keep.eta
+        irls.list[[i+1]] <- irls.old
       }else{
         temp.err1 <- as.numeric(as.character(temp.err2))
         Si <- Si.temp
@@ -1508,6 +1518,8 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
       irls.list[[2]]$beta.old <- irls.list[[2]]$beta.old * 0
     }
     off <- matrix(irls.list[[m]]$beta.new) %*% int + rbind(WS,thetaS)
+    keep.eta <- irls.list[[fit]]
+    irls.old <- irls.list[[2]]
     irls.list <- irls_func(irls.list,predictor=irls.list[[1]]$beta.new, #Sj is known
                            num_iter = score_iter, list_num = 2, offsets=off,
                            outcome = out, transpose=T, thresholds=threshold, famlist=fam.list,
@@ -1524,9 +1536,13 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
                               lambda2=lambda)[[1]]
     if(is.na(as.numeric(as.character(temp.err2)))){
       irls.list[[2]]$beta.new <- beta.old
+      irls.list[[fit]] <- keep.eta
+      irls.list[[2]] <- irls.old
     }else if(as.numeric(as.character(temp.err2))-temp.err1< -1 & show.message){
       cat(paste0("Warning: U wanted to diverge iter ", iter))
       irls.list[[2]]$beta.new <- beta.old
+      irls.list[[fit]] <- keep.eta
+      irls.list[[2]] <- irls.old
     }else{
       temp.err1 <- as.numeric(as.character(temp.err2))
     }
@@ -1534,6 +1550,8 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
 
     #Optimize Sj
     beta.old <- irls.list[[1]]$beta.new
+    keep.eta <- irls.list[[fit]]
+    irls.old <- irls.list[[1]]
     irls.list <- irls_func(irls.list,predictor=irls.list[[2]]$beta.new, #U is known
                            num_iter = score_iter, list_num = 1, offsets=off,
                            outcome = out, thresholds=threshold, famlist=fam.list,
@@ -1545,9 +1563,13 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
                               lambda2=lambda)[[1]]
     if(is.na(as.numeric(as.character(temp.err2)))){
       irls.list[[1]]$beta.new <- beta.old
+      irls.list[[fit]] <- keep.eta
+      irls.list[[1]] <- irls.old
     }else if(as.numeric(as.character(temp.err2))-temp.err1< -1 & show.message){
       cat(paste0("Warning: Sj wanted to diverge iter ", iter))
       irls.list[[1]]$beta.new <- beta.old
+      irls.list[[fit]] <- keep.eta
+      irls.list[[1]] <- irls.old
     }else{
       temp.err1 <- as.numeric(as.character(temp.err2))
     }
@@ -1574,6 +1596,8 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
 
       #Optimize Wi
       beta.old <- irls.list[[2*i+2]]$beta.new
+      keep.eta <- irls.list[[fit]]
+      irls.old <- irls.list[[2*i+2]]
       irls.list <- irls_func(irls.list,predictor=irls.list[[2*i+1]]$beta.new, #Si is known
                              num_iter = score_iter,
                              list_num = (2*i+2), outcome = out,
@@ -1594,9 +1618,13 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
       #print(temp.err2)
       if(is.na(as.numeric(as.character(temp.err2)))){
         irls.list[[2*i+2]]$beta.new <- beta.old
+        irls.list[[fit]] <- keep.eta
+        irls.list[[2*i+2]] <- irls.old
       }else if(as.numeric(as.character(temp.err2))-temp.err1< -1 & show.message){
         cat(paste0("Warning: W", i, "wanted to diverge iter ", iter))
         irls.list[[2*i+2]]$beta.new <- beta.old
+        irls.list[[fit]] <- keep.eta
+        irls.list[[2*i+2]] <- irls.old
       }else{
         temp.err1 <- as.numeric(as.character(temp.err2))
       }
@@ -1608,6 +1636,7 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
       obs.temp <- list(1:length(obs[[i]]), length(obs[[i]])+1)
       irls.list[[fit]] <- irls.list[[fit]][keep.obs,]
       beta.old <- irls.list[[2*i+1]]$beta.new
+      irls.old <- irls.list[[2*i+1]]
       irls.list <- irls_func(irls.list, predictor=irls.list[[2*i+2]]$beta.new,
                              num_iter = score_iter, list_num = (2*i+1), outcome = out[keep.obs,],
                              offsets=off[keep.obs,], Xtilde=X.tilde[keep.obs,],
@@ -1622,9 +1651,13 @@ sesJIVE.converge <- function(X, Y, max.iter=2000, threshold = 0.0001,
                                 lambda2=lambda)[[1]]
       if(is.na(as.numeric(as.character(temp.err2)))){
         irls.list[[2*i+1]]$beta.new <- beta.old
+        irls.list[[fit]] <- keep.eta
+        irls.list[[2*i+1]] <- irls.old
       }else if(as.numeric(as.character(temp.err2))-temp.err1< -1 & show.message){
         cat(paste0("Warning: S", i, "wanted to diverge iter ", iter))
         irls.list[[2*i+1]]$beta.new <- beta.old
+        irls.list[[fit]] <- keep.eta
+        irls.list[[2*i+1]] <- irls.old
       }else{
         temp.err1 <- as.numeric(as.character(temp.err2))
       }
@@ -1866,7 +1899,7 @@ find.wts <- function(e, YY, XX, max.iters,
                                  rankJ=rankJJ, rankA=rankAA,
                                  weights=c(rep(e,length(XX)), 1-e),
                                  show.message=F, show.error=F, initial = initials,
-                                 irls_iter=attempt, intercept=intercepts)
+                                 intercept=intercepts), silent=T
       )
     if(is.null(fit1)){
       fit.dev <- NA
@@ -1914,7 +1947,7 @@ find.lambda <-  function(lambda, YY, XX, max.iters,
                                    weights=weights, lambda=lambda,
                                    sparse=T, initial = initials,
                                    show.message=F, show.error=F,
-                                  intercept=intercepts)
+                                  intercept=intercepts), silent=T
         )
 
     }else{
@@ -1927,7 +1960,7 @@ find.lambda <-  function(lambda, YY, XX, max.iters,
                                    weights=weights,
                                    sparse=F,initial = initials,
                                    show.message=F, show.error=F,
-                                   irls_iter=attempt, intercept=intercepts)
+                                   intercept=intercepts), silent=T
         )
     }
     #Record Error for fold

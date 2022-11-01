@@ -184,7 +184,9 @@ sesJIVE <- function(X, Y, rankJ = 1, rankA=rep(1,length(X)),wts=NULL, max.iter=1
         too.big <- which(test.best2$bad_lambda_ind > 0.5)
         start1 <- test.best2[max(too.small),1]
         stop1 <- test.best2[min(too.big),1]
-        lambda.vec <- seq(start1, stop1, by=(stop1-start1)/9)#[2:7]
+        if(start1==0){start1=stop1*1e-5}
+        lambda.vec <- exp(seq(log(start1), log(stop1),
+                              by=(log(stop1)-log(start1))/6))
         cat(paste0("Re-Tuning Parameter with lambda=c(", toString(lambda.vec), ") \n"))
       }
     }
@@ -764,8 +766,30 @@ summary.sesJIVE <- function(object, ...){
                                 rep('Theta2 - Indiv 2', sum(object$rankA)-object$rankA[1])),
                 coef=c(object$theta1, unlist(object$theta2)))
     coefs$`Exp(coef)` <- exp(coefs$coef)
+
     result <- list(wts=object$weights, ranks=tbl_ranks,
                    coefficients=coefs)
+  }
+  #If sparse
+  if(is.null(object$lambda)==F){
+    J.sparse <- 0; sparse.mat <- NULL
+    J.total <- 0
+    for(i in 1:k){
+      J.total <- J.total + length(as.vector(object$U_I[[i]]))
+      A.total <- length(as.vector(object$W_I[[i]]))
+
+      J.sparse <- J.sparse + length(which(as.vector(object$U_I[[i]])==0))
+      A.sparse <- length(which(as.vector(object$W_I[[i]]==0)))
+
+      new.row <- c(paste("Indiv ",i), round(100*A.sparse/A.total, 1))
+      sparse.mat <- rbind(sparse.mat, new.row)
+    }
+    sparse.mat <- rbind(c("Joint", round(J.sparse/J.total*100, 1)),
+                        sparse.mat)
+    sparse.mat <- as.data.frame(sparse.mat)
+    names(sparse.mat) <- c("Component", "Pct Sparsity")
+    row.names(sparse.mat) <- c()
+    result$pct.sparsity <- sparse.mat
   }
 
   return(result)
@@ -2038,7 +2062,6 @@ sesJIVE.error <- function(Xtilde, U, Sj, W, Si, k, muu, family.x, ob2, kk,
               data_lik = data_ll2))
 
 }
-
 
 
 

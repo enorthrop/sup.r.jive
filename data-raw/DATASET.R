@@ -181,11 +181,30 @@ optim.error <- function(X.tilde, U, theta1, Sj, W, Si, theta2, k, obs){
   return(error)
 }
 
-set.seed(031122)
-dat <- sim.data(k=2, p=c(40,40),n=30,
-                         rankJ = 1, rankI=c(1,1),
-                         X.error = c(0.9,0.9), Y.error = 0.1)
-#fit <- sJIVE(X=dat$X, Y=dat$Y)
+set.seed(103122)
+dat <- sim.data(k=2, p=c(50,50),n=40,
+                rankJ = 1, rankI=c(1,1),
+                X.error = c(0.9,0.9), Y.error = 0.1)
+
+#Fit
+fit1 <- JIVE.pred(X=dat$X, Y=dat$Y, rankJ=1, rankA=c(1,1))
+fit2 <- sJIVE(X=dat$X, Y=dat$Y, rankJ=1, rankA=c(1,1), eta=0.1)
+fit3 <- sesJIVE(X=dat$X, Y=dat$Y, rankJ=1, rankA=c(1,1), wts=0.01)
+
+#summary
+summary(fit1)
+summary(fit2)
+
+#Predict
+pred1 <- predict(fit1, newdata=dat$X)
+pred2 <- predict(fit2, newdata=dat$X)
+pred3 <- predict(fit3, newdata=dat$X)
+
+#Train MSE
+sum((dat$Y - pred1$Ypred)^2)/length(dat$Y)
+sum((dat$Y - pred2$Ypred)^2)/length(dat$Y)
+sum((dat$Y - pred3$Ypred)^2)/length(dat$Y)
+
 
 SimData.norm <- list()
 SimData.norm$X <- dat$X
@@ -518,11 +537,31 @@ sim.data <- function(k, p, n, rankJ, rankI, prop.causal=NULL,
               theta1=U[nrow(U),], theta2=theta2, mu=muu))
 }
 
-set.seed(021722)
-dat<- sim.data(k=2, p=c(30,30), n=20,
+set.seed(103122)
+dat<- sim.data(k=2, p=c(40,40), n=30,
                y.family = "binomial",
                rankJ=1, rankI=c(1,1), prop.causal = c(.5,.5),
-               scale.x=c(0.9,0.9), var.y = 8)
+               eigval.J = 5,
+               scale.x=c(0.9,0.9), var.y = 2)
+
+#Fit
+fit1 <- JIVE.pred(X=dat$X, Y=dat$Y, rankJ=1, rankA=c(1,1), family = "binomial")
+fit3 <- sesJIVE(X=dat$X, Y=dat$Y, rankJ=1, rankA=c(1,1),
+                sparse=T, family.y = "binomial",
+                lambda=7.74263682681127e-06, wts=0.5)
+
+#summary
+summary(fit1)
+summary(fit3)
+
+#Predict
+pred1 <- predict(fit1, newdata=dat$X)
+pred3 <- predict(fit3, newdata=dat$X)
+
+#Train MSE
+sum((dat$Y - pred1$Ypred)^2)/length(dat$Y)
+sum((dat$Y - pred3$Ypred)^2)/length(dat$Y)
+
 SimData.bin <- list()
 SimData.bin$X <- dat$X
 SimData.bin$Y <- dat$Y

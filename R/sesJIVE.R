@@ -735,7 +735,7 @@ summary.sesJIVE <- function(object, ...){
   aov.dat$`Mean Sq` = as.numeric(aov.dat$Sum.Sq) / as.numeric(aov.dat$Df)
   aov.dat$`F value` = as.numeric(aov.dat$`Mean Sq`) / as.numeric(new.row[4])
   aov.dat$`Pr(>F)` = pf(as.numeric(aov.dat$`F value`), as.numeric(aov.dat$Df),
-                        as.numeric(new.row[2]))
+                        as.numeric(new.row[2]), lower.tail = F)
   aov.dat <- rbind(aov.dat, new.row)
   for(i in 3:6){
     aov.dat[,i] <- round(as.numeric(aov.dat[,i]), 5)

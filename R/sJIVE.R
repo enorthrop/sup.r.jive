@@ -330,61 +330,44 @@ summary.sJIVE <- function(object, ...){
   names(var.table) <- c("Component", paste0("X", 1:k), "Y")
 
   #cat("\n $pred.model \n")
-  j <- object$theta1 %*% object$S_J
-  a <- list(); a2 <- 0
-  sse <- sum((object$data$Y - j)^2)
-  ssr <- sum((mean(object$data$Y) - j)^2)
-  ssnum <-  sum((mean(j) - j)^2)
-  coefs <- object$theta1[1]
+  dat <- data.frame(Y=object$data$Y)
+  lm1 <- lm(dat$Y ~ 0)
+  rss.old <-sum(residuals(lm1)^2)
+
+  #Joint
+  dat <- cbind(dat, t(object$S_J))
+  lmfit <- lm(Y ~ 0 + ., data=dat)
+  rss.new <- sum(residuals(lmfit)^2)
+  aov.dat <- data.frame(Component = "Joint",
+                        Df = ncol(dat)-1,
+                       `Sum Sq`=rss.old - rss.new)
+
+  #Indiv
   for(i in 1:k){
-    a[[i]] <- object$theta2[[i]] %*% object$S_I[[i]]
-    a2 <- a2 + a[[i]]
-    sse <- c(sse, sum((object$data$Y - a[[i]])^2))
-    ssr <- c(ssr, sum((mean(object$data$Y) - a[[i]])^2))
-    ssnum <- c(ssnum, sum((mean(a[[i]]) - a[[i]])^2))
-    coefs <- c(coefs, object$theta2[[i]][1])
+    rss.old <- rss.new
+    dat <- cbind(dat, t(object$S_I[[i]]))
+    names(dat)[-1] <- paste0("V", 1:(ncol(dat)-1))
+    lmfit <- lm(Y ~ 0 + ., data=dat)
+    rss.new <- sum(residuals(lmfit)^2)
+    new.row <- c(paste("Indiv", i), ncol(t(object$S_I[[i]])),
+                      rss.old - rss.new)
+    aov.dat <- rbind(aov.dat, new.row)
   }
+  new.row <- c("Residuals", nrow(dat)-sum(as.numeric(aov.dat$Df)), rss.new)
+  new.row <- c(new.row, as.numeric(new.row[3])/as.numeric(new.row[2]), "", "")
 
-  sse_full <- sum((object$data$Y - (j+a2))^2)
-  sse_partial <- sum((object$data$Y - a2)^2)
-  for(i in 1:k){
-    temp <- j
-    for(ii in 1:k){
-      if(ii != i){temp <- temp + a[[ii]]}
-    }
-    sse_partial <- c(sse_partial, sum((object$data$Y - temp)^2))
+  aov.dat$`Mean Sq` = as.numeric(aov.dat$Sum.Sq) / as.numeric(aov.dat$Df)
+  aov.dat$`F value` = as.numeric(aov.dat$`Mean Sq`) / as.numeric(new.row[4])
+  aov.dat$`Pr(>F)` = pf(as.numeric(aov.dat$`F value`), as.numeric(aov.dat$Df),
+                        as.numeric(new.row[2]))
+  aov.dat <- rbind(aov.dat, new.row)
+  for(i in 3:6){
+    aov.dat[,i] <- round(as.numeric(aov.dat[,i]), 5)
   }
-  r_squared <- (sse_partial - sse_full)/sse_partial
-  ranks <- c(object$rankJ, object$rankA)
-
-  b <- which(ranks>1)
-  n <- length(object$data$Y)
-  if(length(b)>0){
-    msr <- ssr[b] / (ranks[b]-1)
-    mse <- sse[b] / (n-ranks[b])
-    fstat <- msr/mse; pval <- NULL
-    for(j in 1:length(b)){
-      pval <- c(pval, 1-stats::pf(abs(fstat[j]), df1=ranks[b[j]]-1,
-                                  df2=n-ranks[b[j]], lower.tail = T) )
-    }}
-  bb <- which(ranks==1)
-  if(length(bb)>0){
-    se <- sqrt((1/(n-1) * sse[bb])  / ssnum[bb] )
-    z.stat <- coefs[bb]/se
-    pval2 <- 2*(1-stats::pnorm(abs(z.stat), lower.tail = T))
-  }
-  pvalfinal <- ranks*1
-  if(length(b)>0) pvalfinal[which(ranks>1)] <- pval
-  if(length(bb)>0) pvalfinal[which(ranks==1)] <- pval2
-
-  tbl <- data.frame(Component=c("Joint", paste0("Indiv", 1:k)),
-                    Rank = ranks,
-                    Partial_R2=r_squared,
-                    Pvalue=pvalfinal)
 
   return(list(eta=object$eta, ranks=tbl_ranks,
               variance=var.table,
-              pred.model=tbl))
+              anova=aov.dat))
 }
 
 

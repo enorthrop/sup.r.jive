@@ -707,39 +707,16 @@ summary.sesJIVE <- function(object, ...){
 
   #cat("\n $pred.model \n")
   dat <- data.frame(Y=object$data$Y)
-  lm1 <- lm(dat$Y ~ 0)
-  rss.old <-sum(residuals(lm1)^2)
-
-  #Joint
   dat <- cbind(dat, t(object$S_J))
-  lmfit <- lm(Y ~ 0 + ., data=dat)
-  rss.new <- sum(residuals(lmfit)^2)
-  aov.dat <- data.frame(Component = "Joint",
-                        Df = ncol(dat)-1,
-                        `Sum Sq`=rss.old - rss.new)
-
+  labs <- c("Y", paste0("Joint ", 1:ncol(t(object$S_J))))
   #Indiv
   for(i in 1:k){
-    rss.old <- rss.new
     dat <- cbind(dat, t(object$S_I[[i]]))
-    names(dat)[-1] <- paste0("V", 1:(ncol(dat)-1))
-    lmfit <- lm(Y ~ 0 + ., data=dat)
-    rss.new <- sum(residuals(lmfit)^2)
-    new.row <- c(paste("Indiv", i), ncol(t(object$S_I[[i]])),
-                 rss.old - rss.new)
-    aov.dat <- rbind(aov.dat, new.row)
+    labs <- c(labs, paste0("Indiv", i, " ", 1:ncol(t(object$S_I[[i]]))))
   }
-  new.row <- c("Residuals", nrow(dat)-sum(as.numeric(aov.dat$Df)), rss.new)
-  new.row <- c(new.row, as.numeric(new.row[3])/as.numeric(new.row[2]), "", "")
-
-  aov.dat$`Mean Sq` = as.numeric(aov.dat$Sum.Sq) / as.numeric(aov.dat$Df)
-  aov.dat$`F value` = as.numeric(aov.dat$`Mean Sq`) / as.numeric(new.row[4])
-  aov.dat$`Pr(>F)` = pf(as.numeric(aov.dat$`F value`), as.numeric(aov.dat$Df),
-                        as.numeric(new.row[2]), lower.tail = F)
-  aov.dat <- rbind(aov.dat, new.row)
-  for(i in 3:6){
-    aov.dat[,i] <- round(as.numeric(aov.dat[,i]), 5)
-  }
+  names(dat) <- labs
+  lmfit <- lm(Y ~ 0 + ., data=dat )
+  aov.dat <- anova(lmfit)
 
   result <- list(wts=object$weights, ranks=tbl_ranks,
                  variance=var.table,
